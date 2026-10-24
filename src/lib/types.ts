@@ -126,6 +126,8 @@ export interface ApplicationInput {
   minInvestment?: MinInvestmentEvidence
   entityAssets?: EntityAssetsEvidence
   attestations: Attestations
+  /** Set when the LP arrived from a fund's invite. On approval the backend shares the passport with that fund. */
+  inviteToken?: string
 }
 
 export type CheckResult = 'pass' | 'fail' | 'warn'
@@ -267,4 +269,43 @@ export interface AdminContext {
   /** Demo personas the admin can switch into. */
   investor: User
   issuer: User
+}
+
+// --- Fund invites -----------------------------------------------------------------------------
+
+export interface InviteRequest {
+  email: string
+  name?: string
+  /** Expected commitment to the fund, shown in the fund's pipeline. */
+  commitment?: number
+}
+
+export interface Invite {
+  id: string
+  fundId: string
+  email: string
+  name: string | null
+  commitment: number | null
+  status: 'sent' | 'opened' | 'accepted'
+  sentAt: string
+}
+
+/** What the invite link shows before anything happens. Public: the token is the only credential. */
+export interface InviteView {
+  fund: Fund
+  inviterName: string
+  email: string
+  name: string | null
+  hasAccount: boolean
+}
+
+/**
+ * Following the invite signs the LP in (creating the account if needed; the emailed link proves the address).
+ * `shared`: they already held a valid passport, now shared with the fund. `verify`: they need to verify first.
+ */
+export interface InviteAcceptance {
+  user: User
+  outcome: 'shared' | 'verify'
+  passportId: string | null
+  fund: Fund
 }

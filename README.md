@@ -38,6 +38,11 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | GET | `/me/investments` | | `Investment[]` |
 | GET | `/issuer/overview` | | `IssuerOverview` (fund, invite link, `IncomingInvestor[]`) |
 | POST | `/issuer/investors/:id/nudge` | | |
+| POST | `/issuer/invites` | `{ invites: InviteRequest[] }` | `{ invites: Invite[] }` (emails each LP a link) |
+| GET | `/invites/:token` | | `InviteView` (public; marks opened) |
+| POST | `/invites/:token/accept` | | `InviteAcceptance` (signs the LP in, creating the account if needed) |
+
+**Invite flow.** The emailed link is the LP's credential: following it signs them in (or creates their account). If they already hold a valid passport, the backend shares it with the inviting fund right away (`outcome: 'shared'`). Otherwise (`outcome: 'verify'`) they go through onboarding, and the application carries `inviteToken`; on approval the backend shares the new passport with that fund. The client never shares on its own.
 | GET | `/admin/context` | | `AdminContext`, or 401/403 |
 | POST | `/admin/switch` | `{ as: 'admin' \| 'investor' \| 'issuer' \| 'visitor' }` | `AdminContext` |
 | POST | `/admin/cases` | `{ decision }` | `Verification` (demo case) |

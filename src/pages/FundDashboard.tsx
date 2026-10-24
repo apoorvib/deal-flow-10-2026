@@ -5,6 +5,7 @@ import { Dialog } from 'radix-ui'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
+import { InviteDialog } from '../features/fund/InviteDialog'
 import { Badge } from '../components/ui/misc'
 import { api } from '../lib/api/client'
 import { cn } from '../lib/cn'
@@ -34,6 +35,7 @@ export default function FundDashboard() {
   const [filter, setFilter] = useState<Filter>('all')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<IncomingInvestor | null>(null)
+  const [inviting, setInviting] = useState(false)
 
   useEffect(() => {
     api.getIssuerOverview().then(setData)
@@ -85,7 +87,12 @@ export default function FundDashboard() {
               <ShieldCheck className="size-4" /> Every investor Savy clears is covered by the Savy Verification Guarantee.
             </p>
           </div>
-          <InviteLink url={data.inviteUrl} />
+          <div className="flex w-full max-w-md flex-col gap-3">
+            <Button size="lg" onClick={() => setInviting(true)} className="self-start sm:self-end">
+              <Send className="size-4" /> Invite LPs
+            </Button>
+            <InviteLink url={data.inviteUrl} />
+          </div>
         </div>
 
         {/* Close readiness */}
@@ -206,6 +213,7 @@ export default function FundDashboard() {
       </div>
 
       <InvestorSheet investor={open} onClose={() => setOpen(null)} onNudge={(i) => nudge([i])} />
+      <InviteDialog fund={data.fund} open={inviting} onOpenChange={setInviting} onSent={() => api.getIssuerOverview().then(setData)} />
     </div>
   )
 }
@@ -228,7 +236,7 @@ function InviteLink({ url }: { url: string }) {
   const [copied, setCopied] = useState(false)
   return (
     <div className="w-full max-w-md">
-      <p className="text-[14px] font-semibold text-ink">Investor invite link</p>
+      <p className="text-[14px] font-semibold text-ink">Or share one link with everyone</p>
       <div className="mt-1.5 flex">
         <input readOnly value={url} aria-label="Investor invite link" onFocus={(e) => e.target.select()} className="h-11 min-w-0 flex-1 rounded-l-[4px] border border-r-0 border-line-strong bg-raised px-3 font-mono text-[13px] text-ink-2 focus:outline-none" />
         <Button

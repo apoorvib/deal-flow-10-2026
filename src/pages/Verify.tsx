@@ -10,7 +10,7 @@ import { SubmitOverlay } from '../features/verify/SubmitOverlay'
 import { api } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
-import { setSession } from '../lib/session'
+import { getSession, setSession } from '../lib/session'
 
 export default function Verify() {
   return (
@@ -46,6 +46,14 @@ function Wizard() {
     if (target || investorType) setParams({}, { replace: true })
   }, [params, setParams, dispatch])
 
+  // Arrived from a fund invite: tie the application to it and prefill the invited address.
+  const invite = getSession().invite
+  useEffect(() => {
+    if (!invite || draft.inviteToken === invite.token) return
+    dispatch({ type: 'patch', patch: { inviteToken: invite.token } })
+    if (!draft.profile.email) dispatch({ type: 'profile', patch: { email: invite.email } })
+  }, [invite, draft.inviteToken, draft.profile.email, dispatch])
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     // Land on the first field so the LP can just start typing; otherwise announce the step heading.
@@ -71,6 +79,7 @@ function Wizard() {
       if (v.passportId) refresh()
       // Keep the draft when the LP has to fix something; clear it once the case is out of their hands.
       if (v.evaluation.decision === 'approved' || v.evaluation.decision === 'review') {
+        if (draft.inviteToken) setSession({ invite: null })
         clearDraft()
         dispatch({ type: 'reset' })
       }
@@ -88,7 +97,7 @@ function Wizard() {
         <span className="font-semibold text-ink">
           Step {index + 1} of {STEPS.length}
         </span>
-        <span className="text-ink-3">About {minutesLeft(step.id)} min left</span>
+        <span className="text-ink-3">{invite ? `For ${invite.fundName} · ` : ''}About {minutesLeft(step.id)} min left</span>
       </div>
       <div className="mt-2.5 grid grid-cols-4 gap-1.5" aria-hidden>
         {STEPS.map((s, i) => (

@@ -6,6 +6,10 @@ import type {
   ApplicationInput,
   Fund,
   Investment,
+  Invite,
+  InviteAcceptance,
+  InviteRequest,
+  InviteView,
   IssuerOverview,
   KycSession,
   LicenseType,
@@ -56,6 +60,12 @@ export interface Api {
   getIssuerOverview(): Promise<IssuerOverview>
   /** Re-sends the verification link to an investor who hasn't cleared yet. */
   nudgeInvestor(investorId: string): Promise<void>
+  /** Emails each address a link to verify for this fund. The sandbox also returns each link, since no email is sent. */
+  inviteInvestors(rows: InviteRequest[]): Promise<{ invites: Invite[]; devLinks?: Record<string, string> }>
+
+  // Invite links (public; the token is the credential)
+  getInvite(token: string): Promise<InviteView>
+  acceptInvite(token: string): Promise<InviteAcceptance>
 
   // Admin showcase. The backend must restrict these to staff accounts.
   /** The admin session behind the current view, or null when no admin is signed in. */
@@ -116,6 +126,9 @@ const httpApi: Api = {
   nudgeInvestor: async (id) => {
     await post(`/issuer/investors/${id}/nudge`)
   },
+  inviteInvestors: (rows) => post('/issuer/invites', { invites: rows }),
+  getInvite: (token) => request(`/invites/${token}`),
+  acceptInvite: (token) => post(`/invites/${token}/accept`),
   adminContext: () => request<AdminContext | null>('/admin/context').catch((e) => (e instanceof ApiError && (e.status === 401 || e.status === 403) ? null : Promise.reject(e))),
   adminSwitch: (as) => post('/admin/switch', { as }),
   adminCreateCase: (decision) => post('/admin/cases', { decision }),

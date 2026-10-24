@@ -15,6 +15,7 @@ import Deals from './pages/Deals'
 import FindPassport from './pages/FindPassport'
 import FundDashboard from './pages/FundDashboard'
 import GetStarted from './pages/GetStarted'
+import InviteLanding from './pages/InviteLanding'
 import InvestorDashboard from './pages/InvestorDashboard'
 import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
@@ -189,6 +190,7 @@ export default function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/get-started" element={<GetStarted />} />
                 <Route path="/signin" element={<SignIn />} />
+                <Route path="/invite/:token" element={<InviteLanding />} />
                 <Route path="/admin" element={<AdminConsole />} />
                 <Route
                   path="/dashboard"

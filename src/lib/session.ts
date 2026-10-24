@@ -6,13 +6,15 @@ const KEY = 'lp-passport.session.v1'
 interface Session {
   passportId: string | null
   verificationId: string | null
+  /** A fund invite being worked through: carried into the application so approval shares with that fund. */
+  invite: { token: string; fundName: string; email: string } | null
 }
 
 export function getSession(): Session {
   try {
-    return { passportId: null, verificationId: null, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }
+    return { passportId: null, verificationId: null, invite: null, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }
   } catch {
-    return { passportId: null, verificationId: null }
+    return { passportId: null, verificationId: null, invite: null }
   }
 }
 

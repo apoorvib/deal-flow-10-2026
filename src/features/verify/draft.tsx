@@ -32,6 +32,7 @@ export interface Draft {
   entityAssets: { totalAssets: Num; formedForPurpose: boolean }
   attestations: { accurate: boolean; notThirdPartyFinanced: boolean; consentToVerify: boolean }
   signature: string
+  inviteToken: string | null
 }
 
 // Four steps; `minutes` drives the "about N min left" estimate.
@@ -59,6 +60,7 @@ export const initialDraft = (): Draft => ({
   entityAssets: { totalAssets: null, formedForPurpose: false },
   attestations: { accurate: false, notThirdPartyFinanced: false, consentToVerify: false },
   signature: '',
+  inviteToken: null,
 })
 
 type Action =
@@ -218,6 +220,7 @@ export function toApplication(d: Draft): ApplicationInput {
     minInvestment: d.pathway === 'min_investment' ? { commitment: z(d.minInvestment.commitment) } : undefined,
     entityAssets: d.pathway === 'entity_assets' ? { totalAssets: z(d.entityAssets.totalAssets), formedForPurpose: d.entityAssets.formedForPurpose } : undefined,
     attestations: d.attestations,
+    ...(d.inviteToken ? { inviteToken: d.inviteToken } : {}),
   }
 }
 

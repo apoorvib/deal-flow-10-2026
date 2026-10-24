@@ -10,6 +10,7 @@ import type {
   Fund,
   IncomingInvestor,
   InvestorType,
+  Invite,
   Investment,
   KycSession,
   ParsedDocument,
@@ -22,7 +23,6 @@ import type {
   User,
   Verification,
 } from '../types'
-import { getSession } from '../session'
 import type { AccountScenario, Api, KycScenario } from './client'
 import { ApiError } from './errors'
 
@@ -46,9 +46,11 @@ interface Db {
   /** Admin showcase: the signed-in admin behind whatever view is active. */
   adminId: string | null
   adminView: AdminView
+  /** Fund invites, keyed by link token. */
+  invites: Record<string, Invite>
 }
 
-const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, signInLinks: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin' })
+const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, signInLinks: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin', invites: {} })
 
 function load(): Db {
   try {
@@ -195,6 +197,19 @@ function issue(v: Verification) {
   }
   db.passports[p.id] = p
   v.passportId = p.id
+  const inv = v.input.inviteToken ? db.invites[v.input.inviteToken] : undefined
+  if (inv) {
+    shareWith(p.id, inv.fundId)
+    inv.status = 'accepted'
+  }
+}
+
+function shareWith(passportId: string, fundId: string) {
+  if (Object.values(db.shares).some((x) => x.passportId === passportId && x.fundId === fundId)) return
+  const fund = FUNDS.find((f) => f.id === fundId)
+  const at = new Date().toISOString()
+  const sh: Share = { id: id('shr'), passportId, fundId, createdAt: at, views: [{ at, by: `${fund?.manager ?? 'Fund'} compliance` }] }
+  db.shares[sh.id] = sh
 }
 
 const must = <T>(v: T | undefined, what: string): T => {
@@ -215,12 +230,12 @@ const titleCase = (email: string) =>
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join(' ') || 'Investor'
 
-/** Investors are linked to the passport issued to their email, falling back to this browser's latest one. */
+/** Investors are linked only to the passport issued to their own email. */
 function passportFor(email: string): string | null {
   const own = Object.values(db.passports)
     .filter((p) => db.verifications[p.verificationId]?.input.profile.email.toLowerCase() === email.toLowerCase())
     .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))[0]
-  return own?.id ?? getSession().passportId
+  return own?.id ?? null
 }
 
 /** Attach the investor's passport and use the verified legal name once there is one. */
@@ -323,7 +338,11 @@ function sharedInvestors(): IncomingInvestor[] {
         verifiedAt: p.issuedAt,
         expiresAt: p.expiresAt,
         letterRef: p.letterRef,
-        commitment: commitmentTo(v?.input.profile.email ?? '', ISSUER_FUND_ID) ?? v?.input.minInvestment?.commitment ?? 0,
+        commitment:
+          commitmentTo(v?.input.profile.email ?? '', ISSUER_FUND_ID) ??
+          Object.values(db.invites).find((i) => i.fundId === ISSUER_FUND_ID && i.email === v?.input.profile.email.toLowerCase())?.commitment ??
+          v?.input.minInvestment?.commitment ??
+          0,
         lastActivityAt: sh.createdAt,
         checks: p.checks.map((c) => ({ id: c.id, label: c.label, result: c.result })),
       }
@@ -564,13 +583,80 @@ const rawApi: Api = {
   async getIssuerOverview() {
     await wait(400)
     const fund = FUNDS.find((f) => f.id === ISSUER_FUND_ID)!
-    const investors = [...sharedInvestors(), ...SEED_LPS.map(seededInvestor)].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
+    const shared = sharedInvestors()
+    const invited: IncomingInvestor[] = Object.entries(db.invites)
+      .filter(([, i]) => i.fundId === fund.id && !shared.some((x) => x.email.toLowerCase() === i.email))
+      .map(([token, i]) => ({
+        id: `lp_inv_${token}`,
+        name: i.name ?? i.email,
+        email: i.email,
+        investorType: 'individual',
+        status: 'invited',
+        pathway: null,
+        verifiedAt: null,
+        expiresAt: null,
+        letterRef: null,
+        commitment: i.commitment ?? 0,
+        lastActivityAt: db.nudged[`lp_inv_${token}`] ?? i.sentAt,
+        checks: [],
+      }))
+    const investors = [...invited, ...shared, ...SEED_LPS.map(seededInvestor)].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
     return { fund, inviteUrl: `${location.origin}/get-started?fund=${fund.id}`, investors }
   },
   async nudgeInvestor(investorId) {
     await wait(500)
     db.nudged[investorId] = new Date().toISOString()
     save()
+  },
+  async inviteInvestors(rows) {
+    await wait(700)
+    const user = must(db.currentUserId ? db.users[db.currentUserId] : undefined, 'Signed-in user')
+    if (user.role !== 'issuer' || !user.fundId) throw new ApiError(403, 'Only fund accounts can invite investors.')
+    const invites: Invite[] = []
+    const devLinks: Record<string, string> = {}
+    for (const r of rows) {
+      const email = r.email.trim().toLowerCase()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue
+      const token = id('inv')
+      const inv: Invite = { id: token, fundId: user.fundId, email, name: r.name?.trim() || null, commitment: r.commitment ?? null, status: 'sent', sentAt: new Date().toISOString() }
+      db.invites[token] = inv
+      invites.push(inv)
+      devLinks[email] = `/invite/${token}`
+    }
+    save()
+    return { invites, devLinks }
+  },
+  async getInvite(token) {
+    await wait(300)
+    const inv = must(db.invites[token], 'Invitation')
+    if (inv.status === 'sent') inv.status = 'opened'
+    save()
+    const fund = must(FUNDS.find((f) => f.id === inv.fundId), 'Fund')
+    return {
+      fund,
+      inviterName: fund.manager,
+      email: inv.email,
+      name: inv.name,
+      hasAccount: Object.values(db.users).some((u) => u.role === 'investor' && u.email === inv.email),
+    }
+  },
+  async acceptInvite(token) {
+    await wait(700)
+    const inv = must(db.invites[token], 'Invitation')
+    const fund = must(FUNDS.find((f) => f.id === inv.fundId), 'Fund')
+    // The emailed link proves the address, so it signs the LP in (creating the account the first time).
+    const user = upsertUser(inv.email, 'investor', inv.name ?? titleCase(inv.email))
+    linkPassport(user)
+    db.currentUserId = user.id
+    if (db.adminId) db.adminView = 'investor'
+    const p = user.passportId ? db.passports[user.passportId] : undefined
+    const active = !!p && new Date(p.expiresAt) > new Date()
+    if (active) {
+      shareWith(p!.id, fund.id)
+      inv.status = 'accepted'
+    }
+    save()
+    return { user, outcome: active ? 'shared' : 'verify', passportId: active ? p!.id : null, fund }
   },
   async adminContext() {
     await wait(120)

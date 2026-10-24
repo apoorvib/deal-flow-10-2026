@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Photo } from '../components/Photo'
 import type { PhotoKey } from '../lib/photos'
 import type { InvestorType } from '../lib/types'
+import { getSession } from '../lib/session'
 
 const TYPES: { id: InvestorType; label: string; icon: typeof User }[] = [
   { id: 'individual', label: 'Just me', icon: User },
@@ -19,8 +20,14 @@ const PROCESS = [
 ]
 
 export default function GetStarted() {
+  const invite = getSession().invite
   return (
     <div className="mx-auto max-w-[760px] px-5 pt-14 pb-6 text-center sm:px-8 sm:pt-20">
+      {invite && (
+        <p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full bg-ok-soft px-4 py-1.5 text-[15px] font-semibold text-ok">
+          {invite.fundName} invited you to verify
+        </p>
+      )}
       <h1 className="display text-[clamp(34px,5vw,52px)] leading-[1.08] text-ink">Verify your status privately</h1>
       <p className="mt-3 text-[18px] text-ink-2">About 10 minutes. Your tax returns never go to a fund manager&rsquo;s inbox.</p>
 
