@@ -46,10 +46,9 @@ export interface Api {
   sharePassport(passportId: string, fundId: string): Promise<Share>
   revokeShare(passportId: string, shareId: string): Promise<void>
 
-  // Accounts: passwordless email link.
-  /** Sends a sign-in link. The sandbox returns the link token so the demo can follow it without email. */
-  requestSignIn(email: string, role: Role): Promise<{ sent: true; devToken?: string }>
-  completeSignIn(token: string): Promise<User>
+  // Accounts: email + password. (Email confirmation happens during onboarding, not at sign-in.)
+  /** Signs in, or creates the account on first use. The sandbox accepts any password and never stores it. */
+  signIn(email: string, password: string, role: Role): Promise<User>
   me(): Promise<User | null>
   signOut(): Promise<void>
 
@@ -115,8 +114,7 @@ const httpApi: Api = {
   revokeShare: async (pid, sid) => {
     await request(`/passports/${pid}/shares/${sid}`, { method: 'DELETE' })
   },
-  requestSignIn: (email, role) => post('/auth/link', { email, role }),
-  completeSignIn: (token) => post('/auth/verify', { token }),
+  signIn: (email, password, role) => post('/auth/login', { email, password, role }),
   me: () => request<User | null>('/me').catch((e) => (e instanceof ApiError && e.status === 401 ? null : Promise.reject(e))),
   signOut: async () => {
     await post('/auth/signout')

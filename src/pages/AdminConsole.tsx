@@ -170,8 +170,7 @@ function EnterShowcase() {
   const enter = async () => {
     setBusy(true)
     try {
-      const { devToken } = await api.requestSignIn('demo@savy.probe.invalid', 'admin')
-      if (devToken) await api.completeSignIn(devToken)
+      await api.signIn('demo@savy.probe.invalid', 'demo', 'admin')
       await refresh()
     } finally {
       setBusy(false)

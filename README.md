@@ -31,8 +31,7 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | GET | `/passports/:id/shares` | | `Share[]` |
 | POST | `/passports/:id/shares` | `{ fundId }` | `Share` |
 | DELETE | `/passports/:id/shares/:shareId` | | |
-| POST | `/auth/link` | `{ email, role }` | `{ sent: true }` (emails a sign-in link) |
-| POST | `/auth/verify` | `{ token }` | `User` (sets session cookie) |
+| POST | `/auth/login` | `{ email, password, role }` | `User` (sets session cookie; email is confirmed during onboarding) |
 | GET | `/me` | | `User`, or 401 when signed out |
 | POST | `/auth/signout` | | |
 | GET | `/me/investments` | | `Investment[]` |

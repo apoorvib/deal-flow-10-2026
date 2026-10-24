@@ -36,8 +36,6 @@ interface Db {
   passports: Record<string, Passport>
   shares: Record<string, Share>
   users: Record<string, User>
-  /** Pending sign-in links: token -> { email, role }. */
-  signInLinks: Record<string, { email: string; role: Role }>
   currentUserId: string | null
   /** Seeded commitments per investor user. */
   investments: Record<string, Investment[]>
@@ -50,7 +48,7 @@ interface Db {
   invites: Record<string, Invite>
 }
 
-const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, signInLinks: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin', invites: {} })
+const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin', invites: {} })
 
 function load(): Db {
   try {
@@ -425,6 +423,30 @@ function adminCtx(): AdminContext | null {
   return { admin, viewingAs: db.adminView, investor, issuer }
 }
 
+/** Find or create the account and make it the current session. */
+function signInAs(rawEmail: string, role: Role): User {
+  const email = rawEmail.trim().toLowerCase()
+  let user = Object.values(db.users).find((u) => u.email === email && u.role === role)
+  if (!user) {
+    user = {
+      id: id('usr'),
+      name: role === 'issuer' ? 'Meridian Partners' : role === 'admin' ? `${titleCase(email)} (admin)` : titleCase(email),
+      email,
+      role,
+      passportId: null,
+      fundId: role === 'issuer' ? ISSUER_FUND_ID : null,
+    }
+    db.users[user.id] = user
+  }
+  if (user.role === 'investor') linkPassport(user)
+  if (user.role === 'admin') {
+    db.adminId = user.id
+    db.adminView = 'admin'
+  }
+  db.currentUserId = user.id
+  return user
+}
+
 const rawApi: Api = {
   async startKyc(legalName: string, scenario: KycScenario = 'clean') {
     await wait(2400)
@@ -523,35 +545,11 @@ const rawApi: Api = {
     delete db.shares[sid]
     save()
   },
-  async requestSignIn(email, role) {
-    await wait(700)
-    const token = id('tok')
-    db.signInLinks[token] = { email: email.trim().toLowerCase(), role }
-    save()
-    return { sent: true, devToken: token }
-  },
-  async completeSignIn(token) {
+  async signIn(email, password, role) {
     await wait(600)
-    const link = must(db.signInLinks[token], 'Sign-in link')
-    delete db.signInLinks[token]
-    let user = Object.values(db.users).find((u) => u.email === link.email && u.role === link.role)
-    if (!user) {
-      user = {
-        id: id('usr'),
-        name: link.role === 'issuer' ? 'Meridian Partners' : link.role === 'admin' ? `${titleCase(link.email)} (admin)` : titleCase(link.email),
-        email: link.email,
-        role: link.role,
-        passportId: null,
-        fundId: link.role === 'issuer' ? ISSUER_FUND_ID : null,
-      }
-      db.users[user.id] = user
-    }
-    if (user.role === 'investor') linkPassport(user)
-    if (user.role === 'admin') {
-      db.adminId = user.id
-      db.adminView = 'admin'
-    }
-    db.currentUserId = user.id
+    // Demo only: any non-empty password works and none is kept. The real backend verifies a password hash.
+    if (!password) throw new ApiError(400, 'Enter your password.')
+    const user = signInAs(email, role)
     save()
     return user
   },
