@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* ---- Tokens: retail-bank language (white canvas, gray bands, one confident blue) ---------- */
+/* ---- Tokens: light theme only (white canvas, gray bands, Savy green) ---------------------- */
 :root {
   --paper: #ffffff;
   --surface: #f4f4f4;
@@ -30,36 +30,6 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0f1418;
-    --surface: #161c21;
-    --raised: #1b2228;
-    --ink: #eef1f3;
-    --ink-2: #c3c9ce;
-    --ink-3: #8c959c;
-    --line: #2a333a;
-    --line-strong: #5b666e;
-    --accent: #2ac68c;
-    --accent-2: #4fd6a3;
-    --mint: #2ac68c;
-    --on-accent: #04261e;
-    --link: #4fd6a3;
-    --navy: #062a22;
-    --brass: #c4a578;
-    --brass-soft: #2b251b;
-    --ok: #6fc49a;
-    --ok-soft: #142a1f;
-    --warn: #e0a85c;
-    --warn-soft: #2c2214;
-    --danger: #f08a80;
-    --danger-soft: #2f1816;
-    --focus: #4fd6a3;
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-lift: 0 16px 40px -12px rgb(0 0 0 / 0.7);
-    color-scheme: dark;
-  }
-}
 
 @theme inline {
   --color-paper: var(--paper);

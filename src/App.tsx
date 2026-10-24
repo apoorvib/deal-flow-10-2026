@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { CircleHelp, ShieldCheck, UserRound } from 'lucide-react'
-import logoReversed from './assets/savy-logo-reversed.png'
 import logo from './assets/savy-logo.png'
 import { isMock } from './lib/api/client'
 import { BRAND } from './lib/brand'
@@ -43,10 +42,7 @@ const NAV = [
 function Wordmark({ className }: { className?: string }) {
   return (
     <Link to="/" className="shrink-0" aria-label={`${BRAND.name} home`}>
-      <picture>
-        <source srcSet={logoReversed} media="(prefers-color-scheme: dark)" />
-        <img src={logo} alt={BRAND.name} className={className ?? 'h-10 w-auto'} />
-      </picture>
+      <img src={logo} alt={BRAND.name} className={className ?? 'h-10 w-auto'} />
     </Link>
   )
 }
