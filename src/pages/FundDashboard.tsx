@@ -9,6 +9,7 @@ import { InviteDialog } from '../features/fund/InviteDialog'
 import { Badge } from '../components/ui/misc'
 import { api } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
+import { downloadLetter } from '../lib/letter'
 import { Link } from 'react-router-dom'
 import { ValidityRing } from '../components/ValidityRing'
 import { cn } from '../lib/cn'
@@ -217,7 +218,7 @@ export default function FundDashboard() {
         </section>
       </div>
 
-      <InvestorSheet investor={open} onClose={() => setOpen(null)} onNudge={(i) => nudge([i])} />
+      <InvestorSheet investor={open} onClose={() => setOpen(null)} onNudge={(i) => nudge([i])} fundName={data.fund.name} />
       <InviteDialog fund={data.fund} open={inviting} onOpenChange={setInviting} onSent={() => api.getIssuerOverview().then(setData)} />
     </div>
   )
@@ -267,7 +268,7 @@ const RESULT_ICON = {
   fail: <CircleX className="size-5 text-danger" />,
 }
 
-function InvestorSheet({ investor: i, onClose, onNudge }: { investor: IncomingInvestor | null; onClose: () => void; onNudge: (i: IncomingInvestor) => void }) {
+function InvestorSheet({ investor: i, onClose, onNudge, fundName }: { investor: IncomingInvestor | null; onClose: () => void; onNudge: (i: IncomingInvestor) => void; fundName: string }) {
   return (
     <Dialog.Root open={!!i} onOpenChange={(o) => !o && onClose()}>
       <AnimatePresence>
@@ -329,7 +330,21 @@ function InvestorSheet({ investor: i, onClose, onNudge }: { investor: IncomingIn
 
                 <div className="flex gap-3 border-t border-line px-7 py-5">
                   {i.status === 'verified' ? (
-                    <Button className="flex-1" onClick={() => toast('Verification letter', { description: `${i.letterRef} · PDF comes from the backend.` })}>
+                    <Button
+                      className="flex-1"
+                      onClick={() =>
+                        downloadLetter({
+                          holderName: i.name,
+                          investorType: i.investorType,
+                          pathway: i.pathway!,
+                          letterRef: i.letterRef!,
+                          verifiedAt: i.verifiedAt!,
+                          expiresAt: i.expiresAt!,
+                          checks: i.checks,
+                          recipient: fundName,
+                        }).then(() => toast.success('Letter downloaded'))
+                      }
+                    >
                       <FileDown className="size-4" /> Verification letter
                     </Button>
                   ) : needsNudge(i.status) ? (

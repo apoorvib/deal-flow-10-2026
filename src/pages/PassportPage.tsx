@@ -8,7 +8,8 @@ import { PassportCard } from '../components/PassportCard'
 import { Button } from '../components/ui/button'
 import { Badge, Card } from '../components/ui/misc'
 import { ValidityRing } from '../components/ValidityRing'
-import { api, isMock } from '../lib/api/client'
+import { api } from '../lib/api/client'
+import { downloadLetter } from '../lib/letter'
 import { daysUntil, longDate } from '../lib/format'
 import { INVESTOR_TYPE_LABEL, PATHWAY_LABEL, type Fund, type Passport, type Share } from '../lib/types'
 
@@ -60,7 +61,12 @@ export default function PassportPage() {
             <Button
               size="lg"
               variant="secondary"
-              onClick={() => toast(isMock ? 'Letter PDF comes from the backend' : 'Preparing your letter', { description: isMock ? 'Connect VITE_API_BASE_URL to download the letter.' : undefined })}
+              onClick={() =>
+                downloadLetter({ holderName: p.holderName, investorType: p.investorType, pathway: p.pathway, letterRef: p.letterRef, verifiedAt: p.issuedAt, expiresAt: p.expiresAt, checks: p.checks }).then(
+                  () => toast.success('Letter downloaded'),
+                  () => toast.error('Couldn’t create the letter'),
+                )
+              }
             >
               <FileDown className="size-4" /> Verification letter
             </Button>

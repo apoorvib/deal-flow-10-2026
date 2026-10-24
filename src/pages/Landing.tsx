@@ -39,6 +39,14 @@ const PLATFORMS = [
   { name: 'Juniper Square', logo: '/img/platforms/junipersquare.png' },
 ]
 
+// The tools the verification pipeline runs on (see api/ and docs/superpowers). Roundtable has no logo
+// asset yet: it shows a neutral placeholder until the team supplies one.
+const POWERED_BY: { name: string; logo: string | null }[] = [
+  { name: 'Ninoo', logo: '/img/platforms/ninoo.png' },
+  { name: 'Roundtable', logo: null },
+  { name: 'PRISM', logo: '/img/platforms/blockconvey.png' },
+]
+
 const STEPS = [
   { icon: Send, title: 'Invite', body: 'Send your LPs one Savy link. No account setup on your side.' },
   { icon: FileCheck2, title: 'Verify', body: 'Investors connect accounts or upload documents once. Savy\u2019s AI reviews them in minutes.' },
@@ -213,6 +221,21 @@ export default function Landing() {
               </motion.li>
             ))}
           </ol>
+          <div className="mt-14 flex flex-wrap items-center justify-center gap-x-12 gap-y-5 border-t border-line pt-10">
+            <span className="text-[15px] font-semibold text-ink-3">Powered by</span>
+            {POWERED_BY.map((p) => (
+              <span key={p.name} className="flex items-center gap-3">
+                {p.logo ? (
+                  <img src={p.logo} alt="" width={36} height={36} className="size-9 rounded-[8px]" loading="lazy" />
+                ) : (
+                  <span className="grid size-9 place-items-center rounded-[8px] bg-ink/[0.07] text-[15px] font-bold text-ink-2" aria-hidden>
+                    {p.name[0]}
+                  </span>
+                )}
+                <span className="text-[24px] font-bold tracking-[-0.01em] text-ink">{p.name}</span>
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 
