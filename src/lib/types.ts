@@ -201,7 +201,7 @@ export const INVESTOR_TYPE_LABEL: Record<InvestorType, string> = {
 
 // --- Accounts & dashboards ------------------------------------------------------------------
 
-export type Role = 'investor' | 'issuer'
+export type Role = 'investor' | 'issuer' | 'admin'
 
 export interface User {
   id: string
@@ -254,4 +254,17 @@ export interface IssuerOverview {
   fund: Fund
   inviteUrl: string
   investors: IncomingInvestor[]
+}
+
+// --- Admin showcase ---------------------------------------------------------------------------
+
+/** Who an admin is currently viewing the product as. */
+export type AdminView = 'admin' | 'investor' | 'issuer' | 'visitor'
+
+export interface AdminContext {
+  admin: User
+  viewingAs: AdminView
+  /** Demo personas the admin can switch into. */
+  investor: User
+  issuer: User
 }

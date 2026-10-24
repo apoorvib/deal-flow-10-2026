@@ -15,6 +15,8 @@ import type {
   ParsedDocument,
   Passport,
   Pathway,
+  AdminContext,
+  AdminView,
   Role,
   Share,
   User,
@@ -41,9 +43,12 @@ interface Db {
   investments: Record<string, Investment[]>
   /** Fund-side pipeline overrides (nudges), keyed by investor id. */
   nudged: Record<string, string>
+  /** Admin showcase: the signed-in admin behind whatever view is active. */
+  adminId: string | null
+  adminView: AdminView
 }
 
-const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, signInLinks: {}, currentUserId: null, investments: {}, nudged: {} })
+const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, signInLinks: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin' })
 
 function load(): Db {
   try {
@@ -334,6 +339,73 @@ function commitmentTo(email: string, fundId: string): number | null {
   return (user && db.investments[user.id]?.find((i) => i.fundId === fundId)?.amount) ?? null
 }
 
+// --- Admin showcase (sandbox) ---------------------------------------------------------------
+
+const DEMO_INVESTOR_EMAIL = 'jane@probe.invalid'
+const DEMO_ISSUER_EMAIL = 'gp@meridian.probe.invalid'
+
+function demoInput(kycId: string, over: Partial<ApplicationInput> = {}): ApplicationInput {
+  return {
+    investorType: 'individual',
+    profile: { legalName: 'Jane Investor', email: DEMO_INVESTOR_EMAIL, country: 'United States' },
+    kycSessionId: kycId,
+    pathway: 'min_investment',
+    accountLinkId: null,
+    documentIds: [],
+    minInvestment: { commitment: 250_000 },
+    attestations: { accurate: true, consentToVerify: true, notThirdPartyFinanced: true },
+    ...over,
+  }
+}
+
+/** Runs a demo application through the same evaluation as a real submission. */
+function createCase(decision: Decision): Verification {
+  const kyc: KycSession = { id: id('kyc'), status: 'verified', nameOnId: 'Jane Investor', ofacHit: decision === 'review', pep: false, createdAt: new Date().toISOString() }
+  db.kyc[kyc.id] = kyc
+  const input =
+    decision === 'needs_info'
+      ? demoInput(kyc.id, { minInvestment: { commitment: 100_000 } })
+      : decision === 'denied'
+        ? demoInput(kyc.id, { pathway: 'license', minInvestment: undefined, license: { type: 'series65', crd: '9123456' } })
+        : demoInput(kyc.id)
+  const v: Verification = { id: id('ver'), input, evaluation: fakeEvaluate(input), passportId: null, createdAt: new Date().toISOString(), reviewedAt: null }
+  if (v.evaluation.decision === 'approved') issue(v)
+  db.verifications[v.id] = v
+  return v
+}
+
+function upsertUser(email: string, role: Role, name: string): User {
+  let u = Object.values(db.users).find((x) => x.email === email && x.role === role)
+  if (!u) {
+    u = { id: id('usr'), name, email, role, passportId: null, fundId: role === 'issuer' ? ISSUER_FUND_ID : null }
+    db.users[u.id] = u
+  }
+  return u
+}
+
+/** Jane (verified, invested, shared with Meridian) and Meridian's GP, ready to show. */
+function ensurePersonas(): { investor: User; issuer: User } {
+  const investor = upsertUser(DEMO_INVESTOR_EMAIL, 'investor', 'Jane Investor')
+  if (!passportFor(DEMO_INVESTOR_EMAIL) || !db.passports[passportFor(DEMO_INVESTOR_EMAIL)!]) createCase('approved')
+  linkPassport(investor)
+  db.investments[investor.id] ??= seedInvestments(investor.id)
+  const pid = investor.passportId!
+  if (!Object.values(db.shares).some((x) => x.passportId === pid && x.fundId === ISSUER_FUND_ID)) {
+    const at = new Date().toISOString()
+    const sh: Share = { id: id('shr'), passportId: pid, fundId: ISSUER_FUND_ID, createdAt: at, views: [{ at, by: 'Meridian Partners compliance' }] }
+    db.shares[sh.id] = sh
+  }
+  const issuer = upsertUser(DEMO_ISSUER_EMAIL, 'issuer', 'Meridian Partners')
+  return { investor, issuer }
+}
+
+function adminCtx(): AdminContext | null {
+  const admin = db.adminId ? db.users[db.adminId] : null
+  if (!admin) return null
+  const { investor, issuer } = ensurePersonas()
+  return { admin, viewingAs: db.adminView, investor, issuer }
+}
+
 const rawApi: Api = {
   async startKyc(legalName: string, scenario: KycScenario = 'clean') {
     await wait(2400)
@@ -447,7 +519,7 @@ const rawApi: Api = {
     if (!user) {
       user = {
         id: id('usr'),
-        name: link.role === 'issuer' ? 'Meridian Partners' : titleCase(link.email),
+        name: link.role === 'issuer' ? 'Meridian Partners' : link.role === 'admin' ? `${titleCase(link.email)} (admin)` : titleCase(link.email),
         email: link.email,
         role: link.role,
         passportId: null,
@@ -456,6 +528,10 @@ const rawApi: Api = {
       db.users[user.id] = user
     }
     if (user.role === 'investor') linkPassport(user)
+    if (user.role === 'admin') {
+      db.adminId = user.id
+      db.adminView = 'admin'
+    }
     db.currentUserId = user.id
     save()
     return user
@@ -473,6 +549,8 @@ const rawApi: Api = {
   async signOut() {
     await wait(200)
     db.currentUserId = null
+    db.adminId = null
+    db.adminView = 'admin'
     save()
   },
   async listInvestments() {
@@ -493,6 +571,40 @@ const rawApi: Api = {
     await wait(500)
     db.nudged[investorId] = new Date().toISOString()
     save()
+  },
+  async adminContext() {
+    await wait(120)
+    const ctx = adminCtx()
+    save()
+    return ctx
+  },
+  async adminSwitch(as) {
+    await wait(250)
+    const ctx = must(adminCtx() ?? undefined, 'Admin session')
+    db.adminView = as
+    db.currentUserId = as === 'admin' ? ctx.admin.id : as === 'investor' ? ctx.investor.id : as === 'issuer' ? ctx.issuer.id : null
+    save()
+    return { ...ctx, viewingAs: as }
+  },
+  async adminCreateCase(decision) {
+    await wait(300)
+    must(adminCtx() ?? undefined, 'Admin session')
+    const v = createCase(decision)
+    save()
+    return v
+  },
+  async adminReset() {
+    await wait(500)
+    const admin = must(db.adminId ? db.users[db.adminId] : undefined, 'Admin session')
+    const fresh = empty()
+    for (const k of Object.keys(db) as (keyof Db)[]) delete (db as Partial<Db>)[k]
+    Object.assign(db, fresh)
+    db.users[admin.id] = admin
+    db.adminId = admin.id
+    db.currentUserId = admin.id
+    const ctx = adminCtx()!
+    save()
+    return ctx
   },
 }
 

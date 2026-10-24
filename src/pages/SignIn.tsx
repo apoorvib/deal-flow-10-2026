@@ -1,4 +1,4 @@
-import { Briefcase, FlaskConical, MailCheck, User } from 'lucide-react'
+import { Briefcase, FlaskConical, MailCheck, ShieldUser, User } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -18,8 +18,9 @@ const ROLES: { id: Role; label: string; icon: typeof User }[] = [
 export default function SignIn() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { setUser } = useAuth()
-  const [role, setRole] = useState<Role>(params.get('as') === 'issuer' ? 'issuer' : 'investor')
+  const { refresh } = useAuth()
+  const asParam = params.get('as')
+  const [role, setRole] = useState<Role>(asParam === 'issuer' || asParam === 'admin' ? asParam : 'investor')
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +43,7 @@ export default function SignIn() {
     setBusy(true)
     try {
       const user = await api.completeSignIn(token)
-      setUser(user)
+      await refresh()
       const next = params.get('next')
       navigate(next && next.startsWith('/') ? next : homeFor(user.role), { replace: true })
     } finally {
@@ -86,8 +87,8 @@ export default function SignIn() {
             ) : (
               <motion.form key="form" onSubmit={submit} noValidate initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <h1 className="display text-[34px] text-ink">Sign in</h1>
-                <div role="radiogroup" aria-label="Account type" className="mt-6 grid grid-cols-2 gap-2">
-                  {ROLES.map((r) => {
+                <div role="radiogroup" aria-label="Account type" className={cn('mt-6 grid gap-2', asParam === 'admin' ? 'grid-cols-3' : 'grid-cols-2')}>
+                  {(asParam === 'admin' ? [...ROLES, { id: 'admin' as Role, label: 'Admin', icon: ShieldUser }] : ROLES).map((r) => {
                     const on = r.id === role
                     return (
                       <button

@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Opens on http://localhost:5173. With no backend configured, the app uses a mock API that stores data in `localStorage`. Sandbox controls show up wherever there's an outcome to choose: ID check result, account balances, attorney sign-off. Use CRD numbers starting with `9` to see a license "not found" result.
+Opens on http://localhost:5173. With no backend configured, the app uses a mock API that stores data in `localStorage`. **Showcase mode:** sign in at `/signin?as=admin` with any email to open the console at `/admin`. A bar at the bottom of every page then switches between Console, Investor (Jane), Fund (Meridian) and Visitor, and the console jumps to any screen, including each verification outcome. Sandbox controls show up wherever there's an outcome to choose: ID check result, account balances, attorney sign-off. Use CRD numbers starting with `9` to see a license "not found" result.
 
 ## Backend contract
 
@@ -38,6 +38,10 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | GET | `/me/investments` | | `Investment[]` |
 | GET | `/issuer/overview` | | `IssuerOverview` (fund, invite link, `IncomingInvestor[]`) |
 | POST | `/issuer/investors/:id/nudge` | | |
+| GET | `/admin/context` | | `AdminContext`, or 401/403 |
+| POST | `/admin/switch` | `{ as: 'admin' \| 'investor' \| 'issuer' \| 'visitor' }` | `AdminContext` |
+| POST | `/admin/cases` | `{ decision }` | `Verification` (demo case) |
+| POST | `/admin/reset` | | `AdminContext` |
 
 `IncomingInvestor` is what a fund sees about an investor: status, basis, dates, letter reference and check outcomes (`pass`/`warn`/`fail`). It must never carry balances, income or net worth.
 

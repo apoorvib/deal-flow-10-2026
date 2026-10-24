@@ -9,6 +9,8 @@ import { isMock } from './lib/api/client'
 import { BRAND } from './lib/brand'
 import { motionEase } from './lib/format'
 import { RequireRole, homeFor, useAuth } from './lib/auth'
+import { AdminBar } from './components/AdminBar'
+import AdminConsole from './pages/AdminConsole'
 import Deals from './pages/Deals'
 import FindPassport from './pages/FindPassport'
 import FundDashboard from './pages/FundDashboard'
@@ -187,6 +189,7 @@ export default function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/get-started" element={<GetStarted />} />
                 <Route path="/signin" element={<SignIn />} />
+                <Route path="/admin" element={<AdminConsole />} />
                 <Route
                   path="/dashboard"
                   element={
@@ -214,6 +217,7 @@ export default function App() {
           </AnimatePresence>
         </main>
         <Footer />
+        <AdminBar />
       </div>
       <Toaster
         position="bottom-center"

@@ -11,6 +11,9 @@ import type {
   LicenseType,
   ParsedDocument,
   Passport,
+  AdminContext,
+  AdminView,
+  Decision,
   Role,
   Share,
   User,
@@ -53,6 +56,16 @@ export interface Api {
   getIssuerOverview(): Promise<IssuerOverview>
   /** Re-sends the verification link to an investor who hasn't cleared yet. */
   nudgeInvestor(investorId: string): Promise<void>
+
+  // Admin showcase. The backend must restrict these to staff accounts.
+  /** The admin session behind the current view, or null when no admin is signed in. */
+  adminContext(): Promise<AdminContext | null>
+  /** Switch the current view to a demo persona (or signed-out visitor) without ending the admin session. */
+  adminSwitch(as: AdminView): Promise<AdminContext>
+  /** Creates a fresh demo verification that lands in `decision`, for showing each outcome screen. */
+  adminCreateCase(decision: Decision): Promise<Verification>
+  /** Wipes demo data and re-seeds the personas. */
+  adminReset(): Promise<AdminContext>
 }
 
 export { ApiError }
@@ -103,6 +116,10 @@ const httpApi: Api = {
   nudgeInvestor: async (id) => {
     await post(`/issuer/investors/${id}/nudge`)
   },
+  adminContext: () => request<AdminContext | null>('/admin/context').catch((e) => (e instanceof ApiError && (e.status === 401 || e.status === 403) ? null : Promise.reject(e))),
+  adminSwitch: (as) => post('/admin/switch', { as }),
+  adminCreateCase: (decision) => post('/admin/cases', { decision }),
+  adminReset: () => post('/admin/reset'),
 }
 
 export const isMock = !BASE
