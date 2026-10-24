@@ -284,7 +284,7 @@ export default function Landing() {
       <section id="qualify" className="scroll-mt-6 border-t border-line bg-surface">
         <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
           <h2 className="display text-center text-[clamp(30px,3.6vw,42px)] text-ink">One test is all it takes</h2>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PATHWAYS.map((p, i) => (
               <motion.div key={p.id} {...inView} transition={{ delay: i * 0.04 }} className="border border-line bg-raised p-6 shadow-card">
                 <h3 className="text-[18px] font-semibold text-ink">{p.title}</h3>

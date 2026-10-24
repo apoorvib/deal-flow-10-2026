@@ -30,6 +30,8 @@ export interface Draft {
   license: { type: LicenseType; crd: string; lookup: { found: boolean; name: string | null } | null }
   minInvestment: { commitment: Num }
   entityAssets: { totalAssets: Num; formedForPurpose: boolean }
+  owners: { ownerCount: Num; allAccredited: boolean }
+  adviser: { fileNumber: string; lookup: { found: boolean; name: string | null } | null }
   attestations: { accurate: boolean; notThirdPartyFinanced: boolean; consentToVerify: boolean }
   signature: string
   inviteToken: string | null
@@ -58,6 +60,8 @@ export const initialDraft = (): Draft => ({
   license: { type: 'series65', crd: '', lookup: null },
   minInvestment: { commitment: null },
   entityAssets: { totalAssets: null, formedForPurpose: false },
+  owners: { ownerCount: null, allAccredited: false },
+  adviser: { fileNumber: '', lookup: null },
   attestations: { accurate: false, notThirdPartyFinanced: false, consentToVerify: false },
   signature: '',
   inviteToken: null,
@@ -67,7 +71,7 @@ type Action =
   | { type: 'goto'; step: StepId }
   | { type: 'patch'; patch: Partial<Draft> }
   | { type: 'profile'; patch: Partial<Profile> & { entityKind?: EntityKind } }
-  | { type: 'section'; key: 'income' | 'netWorth' | 'license' | 'minInvestment' | 'entityAssets' | 'attestations'; patch: Record<string, unknown> }
+  | { type: 'section'; key: 'income' | 'netWorth' | 'license' | 'minInvestment' | 'entityAssets' | 'owners' | 'adviser' | 'attestations'; patch: Record<string, unknown> }
   | { type: 'addDoc'; doc: ParsedDocument }
   | { type: 'removeDoc'; id: string }
   | { type: 'reset' }
@@ -166,6 +170,12 @@ function evidenceBlocker(d: Draft): string | null {
       return d.attestations.notThirdPartyFinanced ? null : 'Confirm the funds aren’t borrowed.'
     case 'entity_assets':
       return d.entityAssets.totalAssets == null ? 'Enter total assets.' : null
+    case 'all_owners_accredited':
+      if (!d.owners.ownerCount) return 'Enter how many owners the entity has.'
+      if (!d.owners.allAccredited) return 'Confirm every owner is accredited.'
+      return d.documents.length ? null : 'Upload ownership documents.'
+    case 'registered_adviser':
+      return /^(80[12]-\d{4,6}|\d{4,8})$/.test(d.adviser.fileNumber.trim()) ? null : 'Enter your SEC file number (801-…) or CRD.'
     default:
       return 'Choose how you qualify.'
   }
@@ -219,6 +229,8 @@ export function toApplication(d: Draft): ApplicationInput {
     license: d.pathway === 'license' ? { type: d.license.type, crd: d.license.crd } : undefined,
     minInvestment: d.pathway === 'min_investment' ? { commitment: z(d.minInvestment.commitment) } : undefined,
     entityAssets: d.pathway === 'entity_assets' ? { totalAssets: z(d.entityAssets.totalAssets), formedForPurpose: d.entityAssets.formedForPurpose } : undefined,
+    owners: d.pathway === 'all_owners_accredited' ? { ownerCount: z(d.owners.ownerCount), allAccredited: d.owners.allAccredited } : undefined,
+    adviser: d.pathway === 'registered_adviser' ? { fileNumber: d.adviser.fileNumber.trim() } : undefined,
     attestations: d.attestations,
     ...(d.inviteToken ? { inviteToken: d.inviteToken } : {}),
   }

@@ -28,6 +28,10 @@ export function EvidenceStep() {
       return <MinInvestmentEvidence />
     case 'entity_assets':
       return <EntityAssetsEvidence />
+    case 'all_owners_accredited':
+      return <OwnersEvidence />
+    case 'registered_adviser':
+      return <AdviserEvidence />
     default:
       return <p className="text-ink-2">Choose how you qualify first.</p>
   }
@@ -404,6 +408,63 @@ function EntityAssetsEvidence() {
         <span className="text-ink">Formed specifically for this investment</span>
       </Checkbox>
       <DocumentUploader title="Supporting documents" hint="Financial statements or CPA letter" />
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------------- Accredited owners */
+
+function OwnersEvidence() {
+  const { draft, dispatch } = useDraft()
+  const o = draft.owners
+  const set = (patch: Partial<typeof o>) => dispatch({ type: 'section', key: 'owners', patch })
+  return (
+    <div className="grid gap-7">
+      <Field label="Number of equity owners">
+        <Input inputMode="numeric" className="tnum" value={o.ownerCount ?? ''} onChange={(e) => set({ ownerCount: e.target.value ? Number(e.target.value.replace(/\D/g, '')) || null : null })} placeholder="e.g. 4" />
+      </Field>
+      <Checkbox id="owners-accredited" checked={o.allAccredited} onChange={(v) => set({ allAccredited: v })}>
+        <span className="text-ink">Every equity owner of this entity is an accredited investor.</span>
+      </Checkbox>
+      <DocumentUploader title="Ownership documents" hint="Operating agreement, LPA or cap table" />
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------------- Registered adviser */
+
+function AdviserEvidence() {
+  const { draft, dispatch } = useDraft()
+  const a = draft.adviser
+  const [busy, setBusy] = useState(false)
+  const set = (patch: Partial<typeof a>) => dispatch({ type: 'section', key: 'adviser', patch })
+  const ok = /^(80[12]-\d{4,6}|\d{4,8})$/.test(a.fileNumber.trim())
+  const lookup = async () => {
+    setBusy(true)
+    try {
+      set({ lookup: await api.checkAdviser(a.fileNumber.trim()) })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="grid gap-7">
+      <Field label="SEC file number or CRD" hint={isMock ? 'Sandbox: numbers starting with 9 aren’t found' : 'As listed on the SEC’s Investment Adviser Public Disclosure site'}>
+        <div className="flex gap-2">
+          <Input className="tnum font-mono" value={a.fileNumber} onChange={(e) => set({ fileNumber: e.target.value, lookup: null })} placeholder="801-123456" />
+          <Button variant="secondary" className="h-12 shrink-0" onClick={lookup} loading={busy} disabled={!ok}>
+            Look up
+          </Button>
+        </div>
+      </Field>
+      <AnimatePresence>
+        {a.lookup && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={cn('flex items-center gap-3 rounded-[6px] border px-4 py-3.5', a.lookup.found ? 'border-ok/30 bg-ok-soft' : 'border-danger/30 bg-danger-soft')}>
+            {a.lookup.found ? <CircleCheck className="size-5 text-ok" /> : <CircleX className="size-5 text-danger" />}
+            <p className="text-[15px] text-ink">{a.lookup.found ? `Found: ${a.lookup.name}` : 'No registered or exempt reporting adviser found for that number.'}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

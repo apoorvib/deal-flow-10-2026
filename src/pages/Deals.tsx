@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/misc'
 import { api } from '../lib/api/client'
+import { useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import { compactUsd, dateTime, shortDate } from '../lib/format'
 import type { Fund, Passport, Share } from '../lib/types'
@@ -19,6 +20,7 @@ export default function Deals() {
   const [shares, setShares] = useState<Share[]>([])
   const [confirming, setConfirming] = useState<Fund | null>(null)
   const [busy, setBusy] = useState(false)
+  const { user } = useAuth()
 
   useEffect(() => {
     api.getPassport(id).then(setPassport, () => {})
@@ -57,7 +59,7 @@ export default function Deals() {
       <ul className="mt-10 grid gap-3">
         {!funds &&
           Array.from({ length: 4 }, (_, i) => <li key={i} className="h-[108px] animate-pulse rounded-2xl bg-line" />)}
-        {funds?.map((f, i) => {
+        {funds?.filter((f) => f.id !== user?.fundId).map((f, i) => {
           const s = shares.find((x) => x.fundId === f.id)
           return (
             <motion.li key={f.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} layout className={cn('rounded-2xl border bg-raised transition-colors', s ? 'border-accent/30' : 'border-line')}>

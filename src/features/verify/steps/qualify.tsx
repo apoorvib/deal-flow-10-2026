@@ -1,4 +1,4 @@
-import { BadgeCheck, Building, HandCoins, Landmark, TrendingUp } from 'lucide-react'
+import { BadgeCheck, Building, HandCoins, Landmark, ShieldCheck, TrendingUp, UsersRound } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '../../../lib/cn'
 import { PATHWAYS } from '../../../lib/rules'
@@ -12,6 +12,8 @@ const ICONS: Record<Pathway, typeof Landmark> = {
   min_investment: HandCoins,
   license: BadgeCheck,
   entity_assets: Building,
+  all_owners_accredited: UsersRound,
+  registered_adviser: ShieldCheck,
 }
 
 const SHORT: Record<Pathway, (t: InvestorType) => string> = {
@@ -20,6 +22,8 @@ const SHORT: Record<Pathway, (t: InvestorType) => string> = {
   min_investment: (t) => (t === 'entity' ? 'Committing $1M or more' : 'Committing $200K or more'),
   license: () => 'Series 7, 65, or 82',
   entity_assets: () => 'Over $5M in assets',
+  all_owners_accredited: () => 'Every owner is accredited',
+  registered_adviser: () => 'Registered or exempt reporting adviser',
 }
 
 export function QualifyStep() {

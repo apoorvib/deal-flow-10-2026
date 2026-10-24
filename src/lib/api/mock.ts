@@ -178,6 +178,18 @@ function fakeEvaluate(input: ApplicationInput): { decision: Decision; checks: Ch
       else add('pathway', 'Entity assets test', 'pass', `${usd(input.entityAssets!.totalAssets)} in total assets.`)
       break
   }
+  if (input.pathway === 'all_owners_accredited') {
+    const o = input.owners
+    if (!o || !o.allAccredited || o.ownerCount < 1) add('pathway', 'Accredited owners test', 'fail', 'Every equity owner must be accredited.', 'needs_info', 'Confirm every owner is accredited and upload ownership documents.')
+    else if (!docs.length) add('pathway', 'Accredited owners test', 'fail', 'No ownership documents.', 'needs_info', 'Upload the operating agreement, LPA or cap table.')
+    // Owners are confirmed against the ownership documents before the entity clears.
+    else add('pathway', 'Accredited owners test', 'warn', `${o.ownerCount} owners represented as accredited; confirming against ownership documents.`, 'review', 'We’re confirming each owner against your ownership documents.')
+  }
+  if (input.pathway === 'registered_adviser') {
+    const f = input.adviser?.fileNumber ?? ''
+    if (f.startsWith('9')) add('pathway', 'Registered adviser test', 'fail', `No adviser found for ${f}.`, 'denied', 'We couldn’t find a registered or exempt reporting adviser for that number.')
+    else add('pathway', 'Registered adviser test', 'pass', `Registration confirmed on the SEC’s IAPD (${f}).`)
+  }
   if (t === 'entity' && input.profile.entityKind === 'trust') add('trust', 'Trust look-through', 'warn', 'Grantor and trustees are being confirmed.', 'review', 'We\u2019re confirming the trust\u2019s grantor and trustees.')
   add('attest', 'Signed attestations', input.attestations.accurate && input.attestations.consentToVerify ? 'pass' : 'fail', 'Accuracy statement and consent to verify.')
   return { decision, checks, reasons: [...new Set(reasons)] }
@@ -239,11 +251,11 @@ function passportFor(email: string): string | null {
   return own?.id ?? null
 }
 
-/** Attach the investor's passport and use the verified legal name once there is one. */
+/** Attach the account's passport (investors and funds both hold one) and adopt the verified legal name. */
 function linkPassport(user: User) {
   user.passportId = passportFor(user.email)
   const p = user.passportId ? db.passports[user.passportId] : null
-  if (p && p.investorType !== 'entity') user.name = p.holderName
+  if (p && user.role === 'investor' && p.investorType !== 'entity') user.name = p.holderName
 }
 
 function seedInvestments(userId: string): Investment[] {
@@ -286,6 +298,8 @@ const CHECK_LABELS: Record<Pathway, string> = {
   license: 'License test',
   min_investment: 'Minimum investment',
   entity_assets: 'Entity assets test',
+  all_owners_accredited: 'Accredited owners test',
+  registered_adviser: 'Registered adviser test',
 }
 
 function seededInvestor([name, investorType, status, pathway, commitment, daysAgo]: (typeof SEED_LPS)[number], i: number): IncomingInvestor {
@@ -459,7 +473,7 @@ function signInAs(rawEmail: string, role: Role): User {
     }
     db.users[user.id] = user
   }
-  if (user.role === 'investor') linkPassport(user)
+  if (user.role !== 'admin') linkPassport(user)
   if (user.role === 'admin') {
     db.adminId = user.id
     db.adminView = 'admin'
@@ -498,6 +512,10 @@ const rawApi: Api = {
     db.docs[d.id] = d
     save()
     return d
+  },
+  async checkAdviser(fileNumber) {
+    await wait(900)
+    return fileNumber.startsWith('9') ? { found: false, name: null } : { found: true, name: 'Registered investment adviser (SEC)' }
   },
   async checkLicense(_type, crd) {
     await wait(900)
@@ -577,7 +595,7 @@ const rawApi: Api = {
   async me() {
     await wait(150)
     const user = db.currentUserId ? db.users[db.currentUserId] : null
-    if (user?.role === 'investor') {
+    if (user && user.role !== 'admin') {
       // Pick up a passport issued after sign-in.
       linkPassport(user)
       save()

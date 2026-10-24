@@ -72,6 +72,22 @@ export const PATHWAYS: PathwayInfo[] = [
     time: '~4 min',
     allowed: (t) => t === 'entity',
   },
+  {
+    id: 'all_owners_accredited',
+    title: 'Accredited owners',
+    requirement: () => 'Every equity owner of the entity is an accredited investor.',
+    evidence: 'Ownership documents and a signed statement',
+    time: '~3 min',
+    allowed: (t) => t === 'entity',
+  },
+  {
+    id: 'registered_adviser',
+    title: 'Registered adviser',
+    requirement: () => 'The entity is an SEC- or state-registered investment adviser, or an exempt reporting adviser.',
+    evidence: 'Your SEC file number or CRD',
+    time: '~1 min',
+    allowed: (t) => t === 'entity',
+  },
 ]
 
 /** Net worth per Rule 501(a)(5): home excluded; its mortgage counts only if underwater or recently increased. */

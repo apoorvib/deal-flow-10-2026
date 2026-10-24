@@ -72,9 +72,9 @@ function AccountMenu() {
           <DropdownMenu.Item className={item} onSelect={() => navigate(homeFor(user.role))}>
             <LayoutDashboard className="size-4 text-ink-3" /> Dashboard
           </DropdownMenu.Item>
-          {user.role === 'investor' && user.passportId && (
+          {user.role !== 'admin' && user.passportId && (
             <DropdownMenu.Item className={item} onSelect={() => navigate(`/passport/${user.passportId}`)}>
-              <WalletCards className="size-4 text-ink-3" /> My passport
+              <WalletCards className="size-4 text-ink-3" /> {user.role === 'issuer' ? 'Fund passport' : 'My passport'}
             </DropdownMenu.Item>
           )}
           <DropdownMenu.Item className={item} onSelect={() => navigate('/settings')}>

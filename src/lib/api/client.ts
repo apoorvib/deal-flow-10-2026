@@ -35,6 +35,8 @@ export interface Api {
   linkAccounts(scenario?: AccountScenario): Promise<AccountLink>
   uploadDocument(file: File, holderHint: string): Promise<ParsedDocument>
   checkLicense(type: LicenseType, crd: string): Promise<{ found: boolean; name: string | null }>
+  /** Looks the adviser up on the SEC's IAPD by SEC file number or CRD. */
+  checkAdviser(fileNumber: string): Promise<{ found: boolean; name: string | null }>
   submitVerification(input: ApplicationInput): Promise<Verification>
   getVerification(id: string): Promise<Verification>
   /** Sandbox only: completes a case in the review queue (the backend does this itself). */
@@ -107,6 +109,7 @@ const httpApi: Api = {
     return request('/documents', { method: 'POST', body: form })
   },
   checkLicense: (type, crd) => post('/licenses/check', { type, crd }),
+  checkAdviser: (fileNumber) => post('/advisers/check', { fileNumber }),
   submitVerification: (input) => post('/verifications', input),
   getVerification: (id) => request(`/verifications/${id}`),
   signOff: (id) => post(`/verifications/${id}/sign-off`),

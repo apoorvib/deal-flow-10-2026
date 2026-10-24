@@ -10,6 +10,10 @@ export type Pathway =
   | 'license'
   | 'min_investment'
   | 'entity_assets'
+  /** Rule 501(a)(8): every equity owner is accredited. */
+  | 'all_owners_accredited'
+  /** Rule 501(a)(1): SEC- or state-registered investment adviser, or exempt reporting adviser. */
+  | 'registered_adviser'
 
 export type LicenseType = 'series7' | 'series65' | 'series82'
 
@@ -106,6 +110,17 @@ export interface EntityAssetsEvidence {
   formedForPurpose: boolean
 }
 
+export interface OwnersEvidence {
+  ownerCount: number
+  /** Signed representation that every equity owner is accredited. */
+  allAccredited: boolean
+}
+
+export interface AdviserEvidence {
+  /** SEC file number (801- or 802-) or CRD number. */
+  fileNumber: string
+}
+
 export interface Attestations {
   accurate: boolean
   notThirdPartyFinanced: boolean
@@ -125,6 +140,8 @@ export interface ApplicationInput {
   license?: LicenseEvidence
   minInvestment?: MinInvestmentEvidence
   entityAssets?: EntityAssetsEvidence
+  owners?: OwnersEvidence
+  adviser?: AdviserEvidence
   attestations: Attestations
   /** Set when the LP arrived from a fund's invite. On approval the backend shares the passport with that fund. */
   inviteToken?: string
@@ -193,6 +210,8 @@ export const PATHWAY_LABEL: Record<Pathway, string> = {
   license: 'Professional license',
   min_investment: 'Minimum investment',
   entity_assets: 'Entity assets',
+  all_owners_accredited: 'Accredited owners',
+  registered_adviser: 'Registered adviser',
 }
 
 export const INVESTOR_TYPE_LABEL: Record<InvestorType, string> = {

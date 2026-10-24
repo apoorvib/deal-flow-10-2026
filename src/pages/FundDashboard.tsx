@@ -8,9 +8,12 @@ import { Button } from '../components/ui/button'
 import { InviteDialog } from '../features/fund/InviteDialog'
 import { Badge } from '../components/ui/misc'
 import { api } from '../lib/api/client'
+import { useAuth } from '../lib/auth'
+import { Link } from 'react-router-dom'
+import { ValidityRing } from '../components/ValidityRing'
 import { cn } from '../lib/cn'
-import { compactUsd, dateTime, longDate, shortDate, usd } from '../lib/format'
-import { INVESTOR_TYPE_LABEL, PATHWAY_LABEL, type IncomingInvestor, type IncomingStatus, type IssuerOverview } from '../lib/types'
+import { compactUsd, dateTime, daysUntil, longDate, shortDate, usd } from '../lib/format'
+import { INVESTOR_TYPE_LABEL, PATHWAY_LABEL, type Fund, type IncomingInvestor, type IncomingStatus, type IssuerOverview, type Passport } from '../lib/types'
 
 const STATUS: Record<IncomingStatus, { label: string; tone: 'ok' | 'warn' | 'neutral' | 'danger' }> = {
   verified: { label: 'Cleared', tone: 'ok' },
@@ -114,6 +117,8 @@ export default function FundDashboard() {
           <Tile label="Under review" value={inv.filter((i) => i.status === 'review').length} tone="warn" />
           <Tile label="Needs action" value={pending.length} tone="danger" />
         </section>
+
+        <FundPassport fund={data.fund} />
 
         {pending.length > 0 && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border border-warn/30 bg-warn-soft px-5 py-3.5">
@@ -350,5 +355,59 @@ function Fact({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
       <dt className="text-[13px] text-ink-3">{k}</dt>
       <dd className={cn('mt-0.5 truncate text-[16px] text-ink', mono && 'font-mono text-[14px]')}>{v}</dd>
     </div>
+  )
+}
+
+/** The fund as an investor: verify once, then share its passport with any deal it invests in. */
+function FundPassport({ fund }: { fund: Fund }) {
+  const { user } = useAuth()
+  const [p, setP] = useState<{ passport: Passport; active: boolean } | null | undefined>(undefined)
+  useEffect(() => {
+    if (user?.passportId) api.getPassport(user.passportId).then(setP, () => setP(null))
+    else setP(null)
+  }, [user?.passportId])
+  if (p === undefined) return null
+
+  if (!p) {
+    return (
+      <section className="mt-5 flex flex-wrap items-center justify-between gap-5 border border-line bg-raised px-6 py-5 shadow-card">
+        <div>
+          <p className="text-[17px] font-semibold text-ink">Investing from this fund?</p>
+          <p className="mt-0.5 text-[15px] text-ink-2">Verify {fund.name} once, then share its passport with any deal.</p>
+        </div>
+        <Link to={`/verify?type=entity&entity=${encodeURIComponent(fund.name)}&kind=partnership`}>
+          <Button variant="secondary">Verify the fund</Button>
+        </Link>
+      </section>
+    )
+  }
+
+  const left = daysUntil(p.passport.expiresAt)
+  return (
+    <section className="mt-5 flex flex-wrap items-center gap-6 border border-line bg-raised px-6 py-5 shadow-card">
+      <div className="relative grid place-items-center">
+        <ValidityRing daysLeft={left} size={64} />
+        <span className="tnum absolute text-[15px] font-semibold text-ink">{left}</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 text-[17px] font-semibold text-ink">
+          Fund passport
+          <Badge tone={p.active ? 'ok' : 'danger'} dot>
+            {p.active ? 'Verified' : 'Expired'}
+          </Badge>
+        </p>
+        <p className="mt-0.5 text-[15px] text-ink-2">
+          {PATHWAY_LABEL[p.passport.pathway]} · {p.active ? `valid until ${longDate(p.passport.expiresAt)}` : `expired ${longDate(p.passport.expiresAt)}`}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Link to={`/passport/${p.passport.id}/deals`}>
+          <Button>Share with a deal</Button>
+        </Link>
+        <Link to={`/passport/${p.passport.id}`}>
+          <Button variant="secondary">View</Button>
+        </Link>
+      </div>
+    </section>
   )
 }

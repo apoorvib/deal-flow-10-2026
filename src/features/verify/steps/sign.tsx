@@ -15,6 +15,10 @@ function evidenceSummary(d: Draft): string {
       return usd(d.minInvestment.commitment ?? 0)
     case 'entity_assets':
       return usd(d.entityAssets.totalAssets ?? 0)
+    case 'all_owners_accredited':
+      return `${d.owners.ownerCount ?? 0} owners, all accredited`
+    case 'registered_adviser':
+      return d.adviser.fileNumber
     default:
       return '—'
   }

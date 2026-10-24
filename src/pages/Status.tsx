@@ -8,7 +8,7 @@ import { PassportCard } from '../components/PassportCard'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/misc'
 import { api, isMock } from '../lib/api/client'
-import { useAuth } from '../lib/auth'
+import { homeFor, useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import { dateTime } from '../lib/format'
 import { setSession } from '../lib/session'
@@ -61,7 +61,7 @@ export default function Status() {
     <div className="mx-auto max-w-3xl px-5 pt-12 pb-10 sm:px-8 sm:pt-16">
       <AnimatePresence mode="wait">
         <motion.div key={d} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
-          {d === 'approved' ? <Approved passport={passport} signedIn={!!user} /> : d === 'review' ? <InReview v={v} /> : <NotYet v={v} />}
+          {d === 'approved' ? <Approved passport={passport} signedIn={!!user} home={user ? homeFor(user.role) : '/dashboard'} /> : d === 'review' ? <InReview v={v} /> : <NotYet v={v} />}
         </motion.div>
       </AnimatePresence>
 
@@ -76,7 +76,7 @@ export default function Status() {
   )
 }
 
-function Approved({ passport, signedIn }: { passport: Passport | null; signedIn: boolean }) {
+function Approved({ passport, signedIn, home }: { passport: Passport | null; signedIn: boolean; home: string }) {
   return (
     <div className="text-center">
       <Badge tone="ok" dot>
@@ -105,7 +105,7 @@ function Approved({ passport, signedIn }: { passport: Passport | null; signedIn:
               Share with a fund
             </Button>
           </Link>
-          <Link to={signedIn ? '/dashboard' : '/signin?as=investor&next=/dashboard'} className="link basis-full text-center text-[16px] font-semibold">
+          <Link to={signedIn ? home : '/signin?as=investor&next=/dashboard'} className="link basis-full text-center text-[16px] font-semibold">
             {signedIn ? 'Go to your dashboard' : 'Sign in to track your investments'}
           </Link>
         </div>

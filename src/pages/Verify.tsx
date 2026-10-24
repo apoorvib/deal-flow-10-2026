@@ -22,7 +22,7 @@ export default function Verify() {
 
 function Wizard() {
   const { draft, dispatch } = useDraft()
-  const { refresh } = useAuth()
+  const { refresh, user } = useAuth()
   const navigate = useNavigate()
   const index = STEPS.findIndex((s) => s.id === draft.step)
   const step = STEPS[index]
@@ -42,9 +42,14 @@ function Wizard() {
     if (investorType === 'individual' || investorType === 'joint' || investorType === 'entity') {
       dispatch({ type: 'patch', patch: { investorType } })
     }
+    // A fund verifying itself as an investor: its name and the signed-in email come prefilled.
+    const entity = params.get('entity')
+    const kind = params.get('kind')
+    if (entity) dispatch({ type: 'profile', patch: { entityName: entity, ...(kind === 'llc' || kind === 'corporation' || kind === 'partnership' || kind === 'trust' ? { entityKind: kind } : {}) } })
+    if (user && entity && !draft.profile.email) dispatch({ type: 'profile', patch: { email: user.email } })
     if (target && STEPS.some((s) => s.id === target)) dispatch({ type: 'goto', step: target as StepId })
-    if (target || investorType) setParams({}, { replace: true })
-  }, [params, setParams, dispatch])
+    if (target || investorType || entity) setParams({}, { replace: true })
+  }, [params, setParams, dispatch, user, draft.profile.email])
 
   // Arrived from a fund invite: tie the application to it and prefill the invited address.
   const invite = getSession().invite
