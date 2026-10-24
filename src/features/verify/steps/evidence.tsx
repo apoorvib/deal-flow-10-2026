@@ -40,23 +40,23 @@ function IncomeEvidence() {
   const th = incomeThreshold(draft.investorType ?? 'individual')
   const y = new Date().getFullYear()
   const rows = [
-    { key: 'priorYear2' as const, label: `${y - 2} income`, hint: 'Adjusted gross income (1040, line 11)' },
-    { key: 'priorYear1' as const, label: `${y - 1} income`, hint: 'Adjusted gross income (1040, line 11)' },
-    { key: 'expectedCurrent' as const, label: `${y} expected`, hint: 'Your reasonable estimate for this year' },
+    { key: 'priorYear2' as const, label: String(y - 2) },
+    { key: 'priorYear1' as const, label: String(y - 1) },
+    { key: 'expectedCurrent' as const, label: `${y} (expected)` },
   ]
   return (
-    <div className="grid gap-9">
+    <div className="grid gap-7">
       <div className="grid gap-5 sm:grid-cols-3">
         {rows.map((r) => {
           const v = draft.income[r.key]
           return (
-            <Field key={r.key} label={r.label} hint={v == null ? r.hint : <ThresholdHint ok={v >= th} text={v >= th ? 'Meets threshold' : `Below ${usd(th)}`} />}>
+            <Field key={r.key} label={r.label} hint={v == null ? undefined : <ThresholdHint ok={v >= th} text={v >= th ? 'Meets threshold' : `Below ${usd(th)}`} />}>
               <MoneyInput value={v} onChange={(n) => dispatch({ type: 'section', key: 'income', patch: { [r.key]: n } })} placeholder={th.toLocaleString()} />
             </Field>
           )
         })}
       </div>
-      <DocumentUploader title="Tax documents" hint={`W-2, 1040, or K-1 for ${y - 2} and ${y - 1} · PDF or photo`} />
+      <DocumentUploader title="Tax documents" hint={`W-2, 1040, or K-1 · ${y - 2} and ${y - 1}`} />
     </div>
   )
 }
@@ -88,27 +88,31 @@ function NetWorthEvidence() {
   })
 
   return (
-    <div className="grid gap-9">
-      <NetWorthMeter verified={linked + statements} assets={r.assets} liabilities={r.liabilities} netWorth={r.netWorth} />
-
+    <div className="grid gap-7">
       <AccountLinker />
 
-      <DocumentUploader title="Or upload statements" hint="Bank or brokerage statements from the last 90 days" />
+      {linked + statements > 0 && <NetWorthMeter verified={linked + statements} assets={r.assets} liabilities={r.liabilities} netWorth={r.netWorth} />}
+
+      <details className="group" open={statements > 0 || undefined}>
+        <summary className="link cursor-pointer list-none text-[16px] font-semibold marker:hidden">Upload statements instead</summary>
+        <div className="mt-4">
+          <DocumentUploader title="Statements" hint="Bank or brokerage, last 90 days" />
+        </div>
+      </details>
 
       <div className="grid gap-5">
-        <h3 className="text-[16px] font-medium text-ink">Everything else</h3>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Other assets" optional hint="Real estate (not your home), private holdings, other accounts">
-            <MoneyInput value={nw.otherAssets} onChange={(n) => set({ otherAssets: n })} />
-          </Field>
-          <Field label="Liabilities" hint="Loans, credit cards, margin; not your home mortgage">
+          <Field label="Liabilities" hint="Excluding your mortgage">
             <MoneyInput value={nw.liabilities} onChange={(n) => set({ liabilities: n })} />
           </Field>
+          <Field label="Other assets" optional>
+            <MoneyInput value={nw.otherAssets} onChange={(n) => set({ otherAssets: n })} />
+          </Field>
         </div>
-        <details className="group rounded-xl border border-line bg-surface open:pb-5">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-[15px] text-ink marker:hidden">
-            Primary residence
-            <span className="text-[14px] text-ink-3 group-open:hidden">Only matters if your mortgage exceeds its value or grew recently</span>
+        <details className="group rounded-[6px] border border-line open:pb-5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-[15px] text-ink-2 marker:hidden">
+            Mortgage above home value, or refinanced recently?
+            <span className="text-[14px] text-link group-open:hidden">Add</span>
           </summary>
           <div className="grid gap-5 px-5 sm:grid-cols-3">
             <Field label="Home value">
@@ -117,7 +121,7 @@ function NetWorthEvidence() {
             <Field label="Mortgage balance">
               <MoneyInput value={nw.primaryResidenceMortgage} onChange={(n) => set({ primaryResidenceMortgage: n })} />
             </Field>
-            <Field label="Added in last 60 days" hint="Cash-out refi or HELOC draws">
+            <Field label="Added in last 60 days">
               <MoneyInput value={nw.mortgageIncreaseLast60Days} onChange={(n) => set({ mortgageIncreaseLast60Days: n })} />
             </Field>
           </div>
@@ -210,11 +214,6 @@ function AccountLinker() {
 
   return (
     <div className="grid gap-3">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-[16px] font-medium text-ink">Linked accounts</h3>
-        <span className="text-[12px] text-ink-3">Read-only · fastest path</span>
-      </div>
-
       {link ? (
         <div className="overflow-hidden rounded-xl border border-line bg-raised">
           <ul className="divide-y divide-line">
@@ -246,8 +245,8 @@ function AccountLinker() {
             <Link2 className="size-4" />
           </span>
           <span className="flex-1">
-            <span className="block text-[15px] font-medium text-ink">Link bank and brokerage accounts</span>
-            <span className="block text-[14px] text-ink-3">Most US banks and brokerages. We see balances only and can&rsquo;t move money.</span>
+            <span className="block text-[15px] font-medium text-ink">Link your accounts</span>
+            <span className="block text-[14px] text-ink-3">Read-only. We can&rsquo;t move money.</span>
           </span>
           <span className="text-ink-3 transition-transform group-hover:translate-x-0.5">&rarr;</span>
         </button>
@@ -350,7 +349,7 @@ function LicenseEvidence() {
           </button>
         ))}
       </div>
-      <Field label="FINRA CRD number" htmlFor={crdId} hint={isMock ? 'Sandbox: CRDs starting with 9 return “not found”.' : 'Find it on BrokerCheck or your U4.'}>
+      <Field label="FINRA CRD number" htmlFor={crdId} hint={isMock ? 'Sandbox: CRDs starting with 9 aren’t found' : undefined}>
         <div className="flex gap-2">
           <Input id={crdId} inputMode="numeric" className="tnum font-mono" value={lic.crd} maxLength={8} onChange={(e) => set({ crd: e.target.value.replace(/\D/g, ''), lookup: null })} placeholder="1234567" />
           <Button variant="secondary" className="h-11 shrink-0" onClick={lookup} loading={busy} disabled={!/^\d{4,8}$/.test(lic.crd)}>
@@ -380,15 +379,12 @@ function MinInvestmentEvidence() {
   const v = draft.minInvestment.commitment
   return (
     <div className="grid gap-6">
-      <Field label="Your commitment to this offering" hint={v == null ? `At least ${usd(th)} in cash, paid at closing` : <ThresholdHint ok={v >= th} text={v >= th ? 'Meets the minimum' : `Below ${usd(th)}`} />}>
+      <Field label="Commitment amount" hint={v == null ? `${usd(th)} minimum · nothing to upload` : <ThresholdHint ok={v >= th} text={v >= th ? 'Meets the minimum' : `Below ${usd(th)}`} />}>
         <MoneyInput value={v} onChange={(n) => dispatch({ type: 'section', key: 'minInvestment', patch: { commitment: n } })} placeholder={th.toLocaleString()} />
       </Field>
-      <div className="rounded-xl border border-line bg-surface p-5 text-[15px] leading-relaxed text-ink-2">
-        <p className="font-medium text-ink">Why there&rsquo;s nothing to upload</p>
-        <p className="mt-1.5">
-          Under SEC guidance from March 2025, a commitment of {usd(th)} or more, plus your written statement that it isn&rsquo;t financed by a third party, counts as reasonable verification. You&rsquo;ll sign that statement on the next step.
-        </p>
-      </div>
+      <Checkbox id="not-financed" checked={draft.attestations.notThirdPartyFinanced} onChange={(c) => dispatch({ type: 'section', key: 'attestations', patch: { notThirdPartyFinanced: c } })}>
+        <span className="text-ink">These funds aren&rsquo;t borrowed or financed by anyone else for this investment.</span>
+      </Checkbox>
     </div>
   )
 }
@@ -401,13 +397,13 @@ function EntityAssetsEvidence() {
   const set = (patch: Partial<typeof ea>) => dispatch({ type: 'section', key: 'entityAssets', patch })
   return (
     <div className="grid gap-8">
-      <Field label="Total assets held by the entity" hint={ea.totalAssets == null ? 'Per its most recent balance sheet' : <ThresholdHint ok={ea.totalAssets > THRESHOLDS.entityAssets} text={ea.totalAssets > THRESHOLDS.entityAssets ? 'Above $5M' : 'Must exceed $5M'} />}>
+      <Field label="Entity total assets" hint={ea.totalAssets == null ? undefined : <ThresholdHint ok={ea.totalAssets > THRESHOLDS.entityAssets} text={ea.totalAssets > THRESHOLDS.entityAssets ? 'Above $5M' : 'Must exceed $5M'} />}>
         <MoneyInput value={ea.totalAssets} onChange={(n) => set({ totalAssets: n })} placeholder="5,000,000" />
       </Field>
       <Checkbox id="formed" checked={ea.formedForPurpose} onChange={(v) => set({ formedForPurpose: v })}>
-        This entity was formed specifically to make this investment. <span className="text-ink-3">If so, we&rsquo;ll verify each owner instead.</span>
+        <span className="text-ink">Formed specifically for this investment</span>
       </Checkbox>
-      <DocumentUploader title="Supporting documents" hint="Financial statements, CPA letter, or formation documents" />
+      <DocumentUploader title="Supporting documents" hint="Financial statements or CPA letter" />
     </div>
   )
 }

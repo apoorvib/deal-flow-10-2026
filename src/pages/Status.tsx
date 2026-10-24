@@ -189,7 +189,7 @@ function NotYet({ v }: { v: Verification }) {
         ))}
       </ul>
       <div className="mt-8 flex flex-wrap gap-3">
-        <Button size="lg" onClick={() => navigate(`/verify?step=${denied ? 'pathway' : 'evidence'}`)}>
+        <Button size="lg" onClick={() => navigate('/verify?step=qualify')}>
           {denied ? 'Try another way to qualify' : 'Update my application'} <ArrowRight className="size-4" />
         </Button>
       </div>

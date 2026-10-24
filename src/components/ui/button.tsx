@@ -25,12 +25,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', loading, disabled, className, children, ...rest },
+  { variant = 'primary', size = 'md', loading, disabled, className, children, type = 'button', ...rest },
   ref,
 ) {
   return (
     <button
       ref={ref}
+      type={type}
       disabled={disabled || loading}
       className={cn(
         'relative inline-flex select-none items-center justify-center font-semibold whitespace-nowrap transition-[background-color,border-color,color,transform,opacity] duration-150 ease-out disabled:pointer-events-none disabled:opacity-45',
