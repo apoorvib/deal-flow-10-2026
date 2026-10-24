@@ -206,24 +206,42 @@ This is where the AI layer earns its place, and it is native to the contract rat
 
 ---
 
-## 6. Vision Works — Confirmed by Probe, 2026-10-24
+## 6. Vision Works on Both Models — Confirmed on a Document Image (2026-10-24)
 
-The Nicrron catalog lists every model with modality `chat` and advertises no image input. **That label understates actual capability.** A direct probe sending a base64 PNG in an `image_url` content block succeeded on both models:
+The Nicrron catalog labels every model `modality: chat` and advertises no image input. **The catalog is wrong. Probe, don't read metadata.**
 
-```
-[openai/gpt-6-luna]         'The green "Savy" logo features a stylized shield containing an S.'
-[anthropic/claude-sonnet-5] 'Savy logo with green shield and "S" design, dark green text.'
-```
+### The decisive test
 
-Both descriptions are accurate, so this is real vision, not a hallucinated guess. Consequences:
+A generated 640×260 PNG of a W-2 (`SYNTHETIC SPECIMEN` header, employer, tax year, `Box 1 Wages: $214,500.00`), asked: *"Read this document. Reply with ONLY the Box 1 wages figure."*
 
-- **`VISION_ENABLED=1`.** Extractor stays `openai/gpt-6-luna`; challenger stays `anthropic/claude-sonnet-5`, which keeps the vendors distinct.
-- **`signs_of_alteration` is in** the challenger's failure modes. Font and alignment evidence is now real evidence rather than an invitation to hallucinate.
-- Document **images** are viable, not just text.
+| Model | `max_tokens` | `finish_reason` | Content | Correct |
+|---|---|---|---|---|
+| `openai/gpt-6-luna` | 16 | `stop` | `$214,500.00` | ✅ |
+| `openai/gpt-6-luna` | 400 | `stop` | `$214,500.00` | ✅ |
+| `anthropic/claude-sonnet-5` | 16 | `stop` | `$214,500.00` | ✅ |
+| `anthropic/claude-sonnet-5` | 400 | `stop` | `$214,500.00` | ✅ |
 
-**Still prefer the arithmetic forgery for demo case 4.** A closing balance that does not reconcile and a generation date preceding its own statement period are two independently stateable defects that survive a model having an off run, a re-run on stage, and a judge asking to try a different file. Visual alteration is a *bonus* channel now, not the load-bearing one. Don't trade a robust catch for a flashier one.
+Both models read a document image correctly, and both did it inside a 16-token budget — so cost and latency are non-issues.
 
-*Do not revert this section based on the catalog metadata. The probe is in `scratchpad/probe.py`; re-run it rather than trusting the model list.*
+### A superseded earlier reading, recorded so it is not re-litigated
+
+An intermediate probe used a 16×16 color-swatch PNG and reported luna returning HTTP 200 with empty content and `finish_reason: "length"` at 16- and 32-token caps, concluding luna's vision was unconfirmed. **That inference was wrong.** `finish_reason: "length"` means the output budget was exhausted before visible content was emitted — it is not evidence the model cannot see. A tiny abstract swatch plus a "what color is this quadrant" question invites hedging; a real document plus a direct extraction question does not. The table above is on the task that actually matters.
+
+That probe did raise one correct objection, which the document test was written to answer: describing a logo is not the same as reading figures off a form. That objection is why §6 now rests on a W-2 image rather than a logo.
+
+### Consequences
+
+- **`VISION_ENABLED=1`** for both models. Extractor stays `openai/gpt-6-luna`; challenger stays `anthropic/claude-sonnet-5`, which keeps the vendors distinct — no third-vendor substitution needed.
+- **`signs_of_alteration` stays in** the challenger's failure modes.
+- Document **images** are viable input, not just text.
+
+### What is still NOT validated
+
+Reading a clean figure off a well-formed document is not the same as **detecting that a document has been doctored**. Alteration detection remains unproven, so:
+
+**Demo case 4 keeps the arithmetic forgery as its primary catch.** A closing balance that does not reconcile, plus a generation date preceding its own statement period, are two independently stateable defects that survive a bad model run, a re-run on stage, and a judge swapping the file. Visual alteration is a bonus channel, not the load-bearing one.
+
+*Probes live in `scratchpad/probe.py` (logo) and `scratchpad/probe2.py` (document). Re-run them rather than trusting the model list — or this paragraph.*
 
 ---
 

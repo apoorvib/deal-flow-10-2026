@@ -28,7 +28,7 @@ Every implementer must read these first. The contract is **fixed by the frontend
 - **Passport validity and freshness: 90 days.**
 - **Model IDs, exact:** extractor/classifier `openai/gpt-6-luna`, challenger `anthropic/claude-sonnet-5`, adjudicator `openai/gpt-6-astra`. The challenger **must not** be an OpenAI model — cross-vendor independence is the design's core claim.
 - **Nicrron base URL:** `https://api.nicrron.ai/v1`
-- **Vision is confirmed working** (probe, 2026-10-24 — see spec §6). `VISION_ENABLED=1`. The catalog's `modality: chat` label is wrong; both luna and Sonnet 5 read a base64 PNG correctly. `signs_of_alteration` stays in the challenger's failure modes.
+- **Vision is confirmed on BOTH models, on a document image** (probe, 2026-10-24 — see spec §6). `VISION_ENABLED=1`. Both `openai/gpt-6-luna` and `anthropic/claude-sonnet-5` read `$214,500.00` off a generated W-2 PNG with `finish_reason: stop`, inside a 16-token budget. An earlier reading that luna's vision was "unconfirmed" was a misdiagnosis of `finish_reason: "length"` (output budget exhausted, not blindness) — see spec §6; do not re-litigate it. `signs_of_alteration` stays in the challenger's failure modes. Alteration *detection* is still unvalidated, so arithmetic forgery remains the primary demo-case-4 fixture.
 - **Decisions are deterministic.** An AI recommendation is an input; it never writes `decision`.
 - **Sandbox behavior is contract:** `scenario` on `/kyc` (`clean|ofac|fail`) and `/account-links` (`high|low`); CRD starting with `9` → `found: false`.
 - **Every external call is cached.** The demo must run with WiFi off.
@@ -68,11 +68,12 @@ Every implementer must read these first. The contract is **fixed by the frontend
 
 ## Task 1: SPIKE — document modality — ✅ COMPLETE (2026-10-24)
 
-- [x] **Resolved: vision works on both models.** The catalog lists every model as modality `chat` and advertises no image input — that label is wrong. A base64 PNG in an `image_url` content block was described accurately by `openai/gpt-6-luna` *and* `anthropic/claude-sonnet-5`.
-- [x] **Decision:** `VISION_ENABLED=1`. Extractor `openai/gpt-6-luna`, challenger `anthropic/claude-sonnet-5` — vendors stay distinct. `signs_of_alteration` **stays in** the failure modes.
-- [x] Demo case 4 still uses the **arithmetic** forgery as its primary catch (spec §6) — two independently stateable defects beat one flashier visual one when a judge asks for a re-run. Visual alteration is now a bonus channel.
+- [x] **Resolved: vision works on BOTH models, verified on a document image.** A generated 640×260 W-2 PNG, asked for the Box 1 figure: `openai/gpt-6-luna` and `anthropic/claude-sonnet-5` each returned `$214,500.00` with `finish_reason: stop`, at both a 16- and a 400-token cap. The Nicrron catalog's `modality: chat` label is simply wrong.
+- [x] **Decision:** `VISION_ENABLED=1` for both. Extractor `openai/gpt-6-luna`, challenger `anthropic/claude-sonnet-5` — vendors stay distinct, no third-vendor substitution needed. `signs_of_alteration` **stays in** the failure modes.
+- [x] **Superseded:** an intermediate probe using a 16×16 color swatch concluded luna's vision was unconfirmed from `finish_reason: "length"`. That was a misread — it means the output budget ran out before visible content, not that the model cannot see. Do not re-litigate; spec §6 records it.
+- [x] **Still unvalidated:** reading a clean figure ≠ detecting a doctored document. So demo case 4 keeps the **arithmetic** forgery as its primary catch; visual alteration is a bonus channel.
 
-Probe script: `scratchpad/probe.py`. Re-run it rather than trusting catalog metadata.
+Probes: `scratchpad/probe.py` (logo), `scratchpad/probe2.py` (document). Re-run rather than trusting metadata.
 
 ---
 
@@ -292,11 +293,14 @@ Confirm it appears in the PRISM dashboard, **then** redeem the code under Settin
 
 ---
 
-## Task 4: SPIKE — can Solari reach BrokerCheck? (15 min, decision only)
+## Task 4: SPIKE — can Solari reach BrokerCheck? — ✅ PAGE-LOAD SPIKE COMPLETE (2026-10-24)
 
-- [ ] **Step 1:** Read the Solari docs (PDF linked in `resources.md`); redeem `VC-HACK1MO-DNNXSYYM`.
-- [ ] **Step 2:** Drive one cloud browser to `https://brokercheck.finra.org/`, search the real CRD chosen for demo case 2, screenshot, return page text. **Time it.**
-- [ ] **Step 3:** Decide: under ~30s → wire live with cache fallback. Slow/flaky → cache-first, live as background refresh. Unreachable → pre-record the session and serve cached results, and say so plainly on stage (the call is real, just made earlier).
+- [x] Read the available Solari quickstart; authenticated with the provided `SOLARI_API_KEY`.
+- [x] Opened `https://brokercheck.finra.org/` in a Solari cloud browser (standard session): launch ~0.98 s; navigation to DOM content loaded ~1.68 s, HTTP 200; title and search form text returned. Full-page screenshot at `/tmp/solari-brokercheck.png` (~215 KB); browser closed.
+- [x] **Decision:** Cloud-browser access is feasible; page load was under 3 seconds in this run. Use a hard timeout and cache fallback until the real CRD search has been validated.
+- [ ] **Remaining:** No CRD was supplied, so no record search, search latency, or result screenshot was tested. Solari `stealth: true` also returned HTTP 402 (`Stealth mode requires a paid plan`); the successful page load used a standard session.
+
+Direct FINRA page-load feasibility is not evidence that the CRD lookup works. Keep the integration fallback until the actual demo record has been searched.
 
 ---
 
