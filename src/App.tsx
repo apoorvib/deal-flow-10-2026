@@ -124,7 +124,7 @@ function Header() {
 const FOOTER_COLS = [
   { title: 'Investors', links: [['Get verified', '/get-started'], ['Ways to qualify', '/#qualify'], ['Sign in', '/signin'], ['Find your passport', '/find']] },
   { title: 'Funds & GPs', links: [['Fund dashboard', '/signin?as=issuer'], ['Accept passports', '/#funds'], ['Verification letters', '/#how'], ['API access', '/#funds']] },
-  { title: 'Trust', links: [['Privacy & security', '/#privacy'], ['How we verify', '/#how'], ['Rule 506(c) overview', '/#qualify']] },
+  { title: 'Trust', links: [['Privacy & security', '/#privacy'], ['How we verify', '/#how'], ['Rule 506(c) overview', '/#qualify'], ['Admin console', '/admin']] },
 ]
 
 function Footer() {

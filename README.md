@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Opens on http://localhost:5173. With no backend configured, the app uses a mock API that stores data in `localStorage`. **Showcase mode:** sign in at `/signin?as=admin` with any email to open the console at `/admin`. A bar at the bottom of every page then switches between Console, Investor (Jane), Fund (Meridian) and Visitor, and the console jumps to any screen, including each verification outcome. Sandbox controls show up wherever there's an outcome to choose: ID check result, account balances, attorney sign-off. Use CRD numbers starting with `9` to see a license "not found" result.
+Opens on http://localhost:5173. With no backend configured, the app uses a mock API that stores data in `localStorage`. **Showcase mode:** open `/admin` (also linked in the footer) and click **Enter showcase**; with a real backend, admins sign in at `/signin?as=admin`. A bar at the bottom of every page then switches between Console, Investor (Jane), Fund (Meridian) and Visitor, and the console jumps to any screen, including each verification outcome. Sandbox controls show up wherever there's an outcome to choose: ID check result, account balances, attorney sign-off. Use CRD numbers starting with `9` to see a license "not found" result.
 
 ## Backend contract
 

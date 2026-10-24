@@ -1,10 +1,10 @@
-import { ArrowUpRight, Briefcase, CircleAlert, CircleCheck, CircleX, Clock, Globe, RotateCcw, User } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Briefcase, CircleAlert, CircleCheck, CircleX, Clock, Globe, RotateCcw, User } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
-import { api } from '../lib/api/client'
+import { api, isMock } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import type { AdminView, Decision } from '../lib/types'
@@ -25,7 +25,7 @@ export default function AdminConsole() {
   }, [admin, switchTo])
 
   if (loading) return null
-  if (!admin) return <Navigate to="/signin?as=admin&next=/admin" replace />
+  if (!admin) return isMock ? <EnterShowcase /> : <Navigate to="/signin?as=admin&next=/admin" replace />
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key)
@@ -160,5 +160,35 @@ function Jump({ label, path, onClick, icon, busy }: { label: string; path: strin
       </span>
       <ArrowUpRight className="size-4 shrink-0 text-ink-3 transition-colors group-hover:text-accent" />
     </button>
+  )
+}
+
+/** Sandbox shortcut: one click signs in a demo admin, no email step. */
+function EnterShowcase() {
+  const { refresh } = useAuth()
+  const [busy, setBusy] = useState(false)
+  const enter = async () => {
+    setBusy(true)
+    try {
+      const { devToken } = await api.requestSignIn('demo@savy.probe.invalid', 'admin')
+      if (devToken) await api.completeSignIn(devToken)
+      await refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="bg-surface">
+      <div className="mx-auto max-w-[460px] px-5 pt-20 pb-24 text-center sm:px-8">
+        <div className="border border-line bg-raised p-10 shadow-card">
+          <p className="eyebrow">Admin</p>
+          <h1 className="display mt-2 text-[34px] text-ink">Showcase console</h1>
+          <p className="mt-2 text-[16px] text-ink-2">Switch between investor, fund and visitor views in one click.</p>
+          <Button size="lg" className="mt-7 w-full" onClick={enter} loading={busy}>
+            Enter showcase <ArrowRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
