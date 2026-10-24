@@ -50,9 +50,16 @@ These are committed and have passed code review. **Treat them as fixed.** If you
 
 ---
 
-## 4. Keys available right now
+## 4. Keys and flags available right now
 
-`.env` contains only **`NICRRON_API_KEY`** and **`SOLARI_API_KEY`**.
+`.env` contains **`NICRRON_API_KEY`**, **`SOLARI_API_KEY`**, **`VISION_ENABLED=1`**, and **`DEMO_MODE=cached`**. See `.env.example` for what every variable does.
+
+**Two flags that will waste your time if you forget them:**
+
+- **`VISION_ENABLED`** — `api/nicrron.py` reads it at import and **defaults to OFF**, in which case `complete_json` *silently* drops the image and sends text only. It is set to `1` in `.env`, so it works — but if document images ever stop being read, check this first. It is the kind of bug that looks like "the model can't read images" when the image was never sent.
+- **`DEMO_MODE`** — `cached` makes every external adapter serve a fixture, which is what lets the demo run with the network off. `live` attempts the real call and falls back to cache on failure. Build adapters so both paths work, and test the *fallback* deliberately, not just the happy path.
+
+Also: `complete_json` hardcodes a `data:image/png;base64,` prefix, so `image_b64` must be **raw base64 of a PNG** with no data-URI prefix of its own. Generate PNG fixtures, not JPEG.
 
 **Blocked until the human adds a key — skip these tasks and say so:**
 - Task 3 (PRISM tracing) needs `PRISMTRACE_API_KEY`
