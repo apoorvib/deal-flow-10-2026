@@ -73,8 +73,8 @@ function useCardTilt(interactive: boolean) {
       now.y += (target.y - now.y) * k
       el.style.setProperty('--rx', `${now.x.toFixed(2)}deg`)
       el.style.setProperty('--ry', `${now.y.toFixed(2)}deg`)
-      el.style.setProperty('--gx', `${(50 + now.y * 5).toFixed(1)}%`)
-      el.style.setProperty('--gy', `${(40 - now.x * 5).toFixed(1)}%`)
+      el.style.setProperty('--gx', `${(50 + now.y * 2.2).toFixed(1)}%`)
+      el.style.setProperty('--gy', `${(40 - now.x * 2.2).toFixed(1)}%`)
       if (visible) raf = requestAnimationFrame(frame)
     }
     // Don't spend frames on a card nobody can see.
@@ -113,7 +113,7 @@ const FOIL =
 
 /** Rim foil: two bright glints on a conic sweep whose start angle follows the tilt, so they travel around the edge. */
 const RIM =
-  'conic-gradient(from calc(var(--ry, 0deg) * 22 + var(--rx, 0deg) * 14 + 210deg), #1f3a31 0%, #5f8d7c 6%, #e8f7f0 10%, #ffffff 11.5%, #9fd1bd 14%, #2b4c41 24%, #1f3a31 38%, #4f7a6b 50%, #d6efe4 57%, #ffffff 59%, #7fae9c 63%, #24433a 74%, #1f3a31 100%)'
+  'conic-gradient(from calc(var(--ry, 0deg) * 7 + var(--rx, 0deg) * 4 + 210deg), #1f3a31 0%, #5f8d7c 6%, #e8f7f0 10%, #ffffff 11.5%, #9fd1bd 14%, #2b4c41 24%, #1f3a31 38%, #4f7a6b 50%, #d6efe4 57%, #ffffff 59%, #7fae9c 63%, #24433a 74%, #1f3a31 100%)'
 
 export function PassportCard({ data, interactive = true, className }: { data: PassportCardData; interactive?: boolean; className?: string }) {
   const { stage, card, handlers } = useCardTilt(interactive)
@@ -163,8 +163,8 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_95%_80%_at_50%_40%,transparent_55%,rgb(0_0_0/0.35)_100%)]" />
         </div>
 
-        {/* Content floats above the stock, so it parallaxes against the pattern as the card turns. */}
-        <div className="absolute inset-0 flex flex-col justify-between p-[6%]" style={z(18)}>
+        {/* Content sits flush with the stock: one rigid plate, no layers sliding against each other. */}
+        <div className="absolute inset-0 flex flex-col justify-between p-[6%]" style={z(2)}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-sans text-[clamp(8px,1.5vw,11px)] font-semibold tracking-[0.2em] text-[#d8c39a]/80 uppercase">{BRAND.name}</div>
@@ -192,14 +192,14 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
           </div>
         </div>
 
-        {/* Sheen, always the top layer: a soft pool plus a thin specular streak that slides with the tilt. */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[14px]" style={z(28)} aria-hidden>
-          <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at var(--gx, 50%) var(--gy, 40%), rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04) 34%, transparent 58%)' }} />
+        {/* Gloss, always the top layer: a soft pool and a broad band that drift only slightly, like light on a rigid plate. */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[14px]" style={z(3)} aria-hidden>
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at var(--gx, 50%) var(--gy, 40%), rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.03) 40%, transparent 65%)' }} />
           <div
             className="absolute -inset-1/2 mix-blend-overlay"
             style={{
-              background: 'linear-gradient(115deg, transparent 42%, rgb(255 255 255 / 0.26) 49%, rgb(255 255 255 / 0.06) 52%, transparent 58%)',
-              transform: 'translateX(calc((var(--gx, 50%) - 50%) * 1.6))',
+              background: 'linear-gradient(115deg, transparent 30%, rgb(255 255 255 / 0.1) 46%, rgb(255 255 255 / 0.14) 50%, rgb(255 255 255 / 0.1) 54%, transparent 70%)',
+              transform: 'translateX(calc((var(--gx, 50%) - 50%) * 0.7))',
             }}
           />
         </div>
