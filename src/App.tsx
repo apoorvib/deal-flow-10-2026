@@ -10,6 +10,8 @@ import { BRAND } from './lib/brand'
 import { motionEase } from './lib/format'
 import { getSession } from './lib/session'
 import Deals from './pages/Deals'
+import FindPassport from './pages/FindPassport'
+import GetStarted from './pages/GetStarted'
 import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
 import PassportPage from './pages/PassportPage'
@@ -31,7 +33,7 @@ function useSession() {
 }
 
 const NAV = [
-  { to: '/verify', label: 'Get verified' },
+  { to: '/get-started', label: 'Get verified' },
   { to: '/#qualify', label: 'Ways to qualify' },
   { to: '/#how', label: 'How it works' },
   { to: '/#privacy', label: 'Privacy & security' },
@@ -75,7 +77,7 @@ function Header() {
               <CircleHelp className="size-[21px]" strokeWidth={1.75} />
             </Link>
             <Link
-              to={passportId ? `/passport/${passportId}` : '/#find'}
+              to={passportId ? `/passport/${passportId}` : '/find'}
               className="flex items-center gap-1.5 text-[17px] text-ink transition-colors hover:text-accent"
             >
               <UserRound className="size-[21px]" strokeWidth={1.75} />
@@ -89,7 +91,7 @@ function Header() {
 }
 
 const FOOTER_COLS = [
-  { title: 'Investors', links: [['Get verified', '/verify'], ['Ways to qualify', '/#qualify'], ['Find your passport', '/#find']] },
+  { title: 'Investors', links: [['Get verified', '/get-started'], ['Ways to qualify', '/#qualify'], ['Find your passport', '/find']] },
   { title: 'Funds & GPs', links: [['Accept passports', '/#funds'], ['Verification letters', '/#how'], ['API access', '/#funds']] },
   { title: 'Trust', links: [['Privacy & security', '/#privacy'], ['How we verify', '/#how'], ['Rule 506(c) overview', '/#qualify']] },
 ]
@@ -154,6 +156,8 @@ export default function App() {
             >
               <Routes location={location}>
                 <Route path="/" element={<Landing />} />
+                <Route path="/get-started" element={<GetStarted />} />
+                <Route path="/find" element={<FindPassport />} />
                 <Route path="/verify" element={<Verify />} />
                 <Route path="/status/:id" element={<Status />} />
                 <Route path="/passport/:id" element={<PassportPage />} />

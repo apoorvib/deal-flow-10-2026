@@ -1,12 +1,8 @@
-import { ArrowRight, ChevronRight, Clock, Eye, EyeOff, FileCheck2, Fingerprint, Lock, Mail, RefreshCw, Send, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Briefcase, Building2, ChevronDown, ChevronRight, Clock, Eye, EyeOff, FileCheck2, Fingerprint, Lock, RefreshCw, Send, User, Users } from 'lucide-react'
 import { motion } from 'motion/react'
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { PassportCard } from '../components/PassportCard'
 import { Button } from '../components/ui/button'
-import { api } from '../lib/api/client'
-import { cn } from '../lib/cn'
-import { setSession } from '../lib/session'
 import { PATHWAYS } from '../lib/rules'
 
 // Unsplash License: free for commercial use, no attribution required.
@@ -23,6 +19,28 @@ const specimen = {
   status: 'specimen' as const,
 }
 
+const AUDIENCES = [
+  { icon: User, label: 'Individuals', to: '/get-started?type=individual' },
+  { icon: Users, label: 'Couples', to: '/get-started?type=joint' },
+  { icon: Building2, label: 'Entities & trusts', to: '/get-started?type=entity' },
+  { icon: Briefcase, label: 'Fund managers', to: '/#funds' },
+]
+
+const STATS = [
+  { k: '~10 min', v: 'to apply, start to finish' },
+  { k: '90 days', v: 'that each passport stays valid' },
+  { k: '1 click', v: 'to share with a new fund' },
+  { k: '0', v: 'documents ever sent to funds' },
+]
+
+const FAQ = [
+  { q: 'Who needs to be accredited?', a: 'Funds raising under SEC Rule 506(c) must take reasonable steps to verify every investor. If a fund asks you for accreditation, a Savy passport covers it.' },
+  { q: 'Does this affect my credit score?', a: 'No. We don\u2019t run a credit check. We confirm balances you link or documents you upload, and you report liabilities yourself.' },
+  { q: 'What do funds see?', a: 'Your verified status, which test you passed, the dates, and the attorney-signed letter reference. Never your documents, balances, or income.' },
+  { q: 'How long does a passport last?', a: 'Ninety days, the window funds rely on under SEC guidance. Refreshing takes a few minutes because your profile is already on file.' },
+  { q: 'What if my situation is complicated?', a: 'Trusts, entities, and joint filings go to a licensed attorney for a quick review, usually within one business day.' },
+]
+
 const inView = {
   initial: { opacity: 0, y: 16 },
   whileInView: { opacity: 1, y: 0 },
@@ -32,8 +50,6 @@ const inView = {
 export default function Landing() {
   return (
     <>
-      <FindPassportBar />
-
       {/* Hero: full-bleed photo, white offer card */}
       <section className="relative isolate overflow-hidden">
         <img src={HERO_IMAGE} alt="" className="absolute inset-0 -z-10 size-full object-cover object-[65%_center]" />
@@ -50,9 +66,9 @@ export default function Landing() {
               Prove you&rsquo;re an accredited investor in about 10 minutes, then reuse your passport with every fund for 90 days.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
-              <Link to="/verify">
+              <Link to="/get-started">
                 <Button size="lg" className="h-14 px-7 text-[19px]">
-                  Check my eligibility
+                  I&rsquo;m interested
                 </Button>
               </Link>
               <Link to="/#qualify" className="link inline-flex items-center gap-0.5 text-[17px] font-semibold">
@@ -63,12 +79,28 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Who it's for: icon row */}
+      <section className="border-b border-line bg-raised">
+        <ul className="mx-auto grid max-w-6xl grid-cols-2 gap-y-8 px-5 py-10 sm:px-8 md:grid-cols-4">
+          {AUDIENCES.map((a) => (
+            <li key={a.label}>
+              <Link to={a.to} className="group flex flex-col items-center gap-3 text-center">
+                <span className="grid size-16 place-items-center rounded-full border border-line text-accent transition-colors group-hover:border-accent group-hover:bg-accent/[0.06]">
+                  <a.icon className="size-7" strokeWidth={1.5} />
+                </span>
+                <span className="text-[17px] text-ink group-hover:text-link group-hover:underline group-hover:underline-offset-4">{a.label}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       {/* Value tiles */}
       <section className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
         <h2 className="display text-center text-[clamp(30px,3.6vw,42px)] text-ink">Why investors use Savy</h2>
         <div className="mt-12 grid gap-6 md:grid-cols-3">
           {[
-            { icon: Clock, title: 'Minutes, not weeks', body: 'Clean applications are approved automatically. No more waiting days for a CPA letter.', cta: 'Start now', to: '/verify' },
+            { icon: Clock, title: 'Minutes, not weeks', body: 'Clean applications are approved automatically. No more waiting days for a CPA letter.', cta: 'Start now', to: '/get-started' },
             { icon: RefreshCw, title: 'Reuse it everywhere', body: 'One verification works with every participating fund, syndicate, and SPV for 90 days.', cta: 'For fund managers', to: '/#funds' },
             { icon: Lock, title: 'Your finances stay private', body: 'Funds see that you qualify. They never see your tax returns, balances, or income.', cta: 'How we protect you', to: '/#privacy' },
           ].map((t, i) => (
@@ -109,7 +141,7 @@ export default function Landing() {
                 tone="neutral"
               />
             </div>
-            <Link to="/verify" className="mt-9 inline-block">
+            <Link to="/get-started" className="mt-9 inline-block">
               <Button size="lg">Get my passport</Button>
             </Link>
           </motion.div>
@@ -134,7 +166,7 @@ export default function Landing() {
           <motion.div {...inView} className="flex flex-col justify-center bg-navy p-7 text-white">
             <h3 className="text-[20px] font-semibold">Not sure which applies?</h3>
             <p className="mt-3 text-[16px] leading-relaxed text-white/80">Start the check. We only show the paths open to you.</p>
-            <Link to="/verify" className="mt-5 inline-flex items-center gap-0.5 text-[16px] font-semibold text-white hover:underline">
+            <Link to="/get-started" className="mt-5 inline-flex items-center gap-0.5 text-[16px] font-semibold text-white hover:underline">
               Check my eligibility <ChevronRight className="size-4" />
             </Link>
           </motion.div>
@@ -166,6 +198,34 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Proof points */}
+      <section className="mx-auto max-w-6xl px-5 pt-20 sm:px-8">
+        <dl className="grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+          {STATS.map((x) => (
+            <div key={x.v} className="bg-raised px-6 py-8 text-center">
+              <dt className="display text-[44px] leading-none text-accent">{x.k}</dt>
+              <dd className="mt-3 text-[16px] text-ink-2">{x.v}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      {/* FAQ */}
+      <section className="mx-auto max-w-3xl px-5 pt-20 sm:px-8">
+        <h2 className="display text-center text-[clamp(30px,3.6vw,42px)] text-ink">Common questions</h2>
+        <div className="mt-10 divide-y divide-line border-y border-line">
+          {FAQ.map((f) => (
+            <details key={f.q} className="group py-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-[18px] text-ink marker:hidden">
+                {f.q}
+                <ChevronDown className="size-5 shrink-0 text-accent transition-transform duration-200 group-open:rotate-180" />
+              </summary>
+              <p className="mt-3 pr-10 text-[16px] leading-relaxed text-ink-2">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
       {/* For funds */}
       <section id="funds" className="mx-auto max-w-6xl scroll-mt-6 px-5 pt-20 sm:px-8">
         <div className="flex flex-col items-start justify-between gap-8 bg-navy px-8 py-12 text-white sm:px-14 md:flex-row md:items-center">
@@ -174,7 +234,7 @@ export default function Landing() {
             <h2 className="display mt-3 text-[clamp(28px,3.4vw,38px)] leading-[1.12]">Accept passports and close 506(c) rounds faster</h2>
             <p className="mt-3 text-[16px] leading-relaxed text-white/80">Every passport comes with an attorney-signed letter and a full audit file: your documented &ldquo;reasonable steps.&rdquo;</p>
           </div>
-          <Link to="/verify">
+          <Link to="/get-started">
             <Button size="lg" className="h-14 bg-white px-7 text-[18px] text-navy hover:bg-white/90">
               Get started <ArrowRight className="size-4" />
             </Button>
@@ -182,73 +242,6 @@ export default function Landing() {
         </div>
       </section>
     </>
-  )
-}
-
-function FindPassportBar() {
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [ref, setRef] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!email.trim() || !ref.trim()) return setError('Enter your email and letter reference.')
-    setBusy(true)
-    setError(null)
-    try {
-      const r = await api.findPassport(email, ref)
-      if (!r) return setError('We couldn’t find a passport with those details.')
-      setSession({ passportId: r.passportId })
-      navigate(`/passport/${r.passportId}`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const input =
-    'h-12 w-full rounded-[4px] border border-line-strong bg-raised pl-11 pr-3 text-[16px] text-ink placeholder:text-ink-3/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25'
-
-  return (
-    <section id="find" className="scroll-mt-6 border-b border-line bg-surface">
-      <form onSubmit={submit} className="mx-auto grid max-w-[1040px] gap-x-8 gap-y-4 px-5 py-8 sm:px-8 md:grid-cols-[1fr_1fr_220px]" noValidate>
-        <div>
-          <label htmlFor="find-email" className="text-[16px] text-ink">
-            Email
-          </label>
-          <div className="relative mt-1.5">
-            <Mail className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-ink-2" strokeWidth={1.5} />
-            <input id="find-email" type="email" autoComplete="email" className={input} value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <p className="mt-2 text-[15px] text-ink-2">Already verified? Open your passport.</p>
-        </div>
-        <div>
-          <label htmlFor="find-ref" className="text-[16px] text-ink">
-            Letter reference
-          </label>
-          <div className="relative mt-1.5">
-            <ShieldCheck className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-ink-2" strokeWidth={1.5} />
-            <input id="find-ref" autoComplete="off" placeholder="AIV-2026-XXXXXX" className={cn(input, 'font-mono text-[15px] uppercase placeholder:normal-case')} value={ref} onChange={(e) => setRef(e.target.value)} />
-          </div>
-          {error ? (
-            <p className="mt-2 text-[15px] text-danger" role="alert">
-              {error}
-            </p>
-          ) : (
-            <p className="mt-2 text-[15px] text-ink-3">It&rsquo;s in your verification letter email.</p>
-          )}
-        </div>
-        <div className="md:pt-[30px]">
-          <Button type="submit" size="lg" loading={busy} className="h-12 w-full text-[18px]">
-            Open passport
-          </Button>
-          <Link to="/verify" className="link mt-2.5 inline-block text-[15px]">
-            New here? Get verified
-          </Link>
-        </div>
-      </form>
-    </section>
   )
 }
 

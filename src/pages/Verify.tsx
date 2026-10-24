@@ -35,10 +35,15 @@ function Wizard() {
   // Status page deep-links back to a step (e.g. ?step=evidence) to fix an application.
   useEffect(() => {
     const target = params.get('step')
+    const investorType = params.get('type')
     if (target && STEPS.some((s) => s.id === target)) {
       dispatch({ type: 'goto', step: target as StepId })
-      setParams({}, { replace: true })
+    } else if (investorType === 'individual' || investorType === 'joint' || investorType === 'entity') {
+      // Coming from the process page: the investor type is already chosen, so open on details.
+      dispatch({ type: 'patch', patch: { investorType } })
+      dispatch({ type: 'goto', step: 'profile' })
     }
+    if (target || investorType) setParams({}, { replace: true })
   }, [params, setParams, dispatch])
 
   useEffect(() => {
