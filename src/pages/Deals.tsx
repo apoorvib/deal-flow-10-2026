@@ -12,6 +12,7 @@ import { cn } from '../lib/cn'
 import { compactUsd, dateTime, shortDate } from '../lib/format'
 import type { Fund, Passport, Share } from '../lib/types'
 import { PATHWAY_LABEL } from '../lib/types'
+import { DealsSkeleton } from '../components/ui/skeleton'
 
 export default function Deals() {
   const { id = '' } = useParams()
@@ -56,9 +57,9 @@ export default function Deals() {
       <h1 className="display mt-4 text-[clamp(30px,4.4vw,44px)] leading-[1.05] text-ink">Open allocations</h1>
       <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink-2">These funds accept your passport. Sharing gives their compliance team your verified status, so you can skip their accreditation paperwork.</p>
 
+      {!funds && <DealsSkeleton />}
       <ul className="mt-10 grid gap-3">
-        {!funds &&
-          Array.from({ length: 4 }, (_, i) => <li key={i} className="h-[108px] animate-pulse rounded-2xl bg-line" />)}
+
         {funds?.filter((f) => f.id !== user?.fundId).map((f, i) => {
           const s = shares.find((x) => x.fundId === f.id)
           return (

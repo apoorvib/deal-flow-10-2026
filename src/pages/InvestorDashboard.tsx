@@ -11,6 +11,7 @@ import { api } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
 import { daysUntil, longDate, shortDate, usd } from '../lib/format'
 import { PATHWAY_LABEL, type Fund, type FundingAccount, type Investment, type InvestmentStatus, type Passport, type Share } from '../lib/types'
+import { InvestorDashboardSkeleton, RowsSkeleton, Skeleton } from '../components/ui/skeleton'
 
 const STATUS: Record<InvestmentStatus, { label: string; tone: 'brass' | 'ok' | 'neutral' }> = {
   committed: { label: 'Committed', tone: 'brass' },
@@ -40,6 +41,7 @@ export default function InvestorDashboard() {
   }, [user])
 
   if (!user) return null
+  if (passport === undefined && investments === null) return <InvestorDashboardSkeleton />
   const fundingDialog = (
     <FundDialog
       investment={funding}
@@ -63,7 +65,7 @@ export default function InvestorDashboard() {
         <div className="mt-8 grid gap-5 lg:grid-cols-[1.1fr_1fr]">
           {/* Passport */}
           {passport === undefined ? (
-            <div className="h-[220px] animate-pulse border border-line bg-raised" />
+            <Skeleton className="h-[220px]" />
           ) : passport ? (
             <PassportTile p={passport.passport} active={passport.active} />
           ) : (
@@ -106,7 +108,7 @@ export default function InvestorDashboard() {
             )}
           </div>
           {investments === null ? (
-            <div className="space-y-px border-t border-line">{[0, 1, 2].map((i) => <div key={i} className="h-16 animate-pulse bg-surface" />)}</div>
+            <RowsSkeleton rows={3} />
           ) : investments.length === 0 ? (
             <p className="border-t border-line px-6 py-10 text-center text-[16px] text-ink-3">{passport ? 'No investments yet.' : 'Your investments appear here once you’re verified.'}</p>
           ) : (

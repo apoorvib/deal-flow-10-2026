@@ -12,6 +12,7 @@ import { api } from '../lib/api/client'
 import { downloadLetter } from '../lib/letter'
 import { daysUntil, longDate } from '../lib/format'
 import { INVESTOR_TYPE_LABEL, PATHWAY_LABEL, type Fund, type Passport, type Share } from '../lib/types'
+import { PassportSkeleton } from '../components/ui/skeleton'
 
 export default function PassportPage() {
   const { id = '' } = useParams()
@@ -33,7 +34,7 @@ export default function PassportPage() {
         <p className="mt-3 text-ink-2">{error}</p>
       </div>
     )
-  if (!data) return <PageSkeleton />
+  if (!data) return <PassportSkeleton />
 
   const { passport: p, active } = data
   const left = daysUntil(p.expiresAt)
@@ -160,22 +161,6 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
     <div className="flex items-center justify-between gap-4 px-6 py-3.5">
       <span className="text-[14px] text-ink-3">{k}</span>
       <span className="text-[15px] text-ink">{v}</span>
-    </div>
-  )
-}
-
-export function PageSkeleton() {
-  return (
-    <div className="mx-auto max-w-6xl px-5 pt-14 sm:px-8" aria-busy>
-      <div className="h-3 w-28 animate-pulse rounded-full bg-line" />
-      <div className="mt-4 h-9 w-72 animate-pulse rounded-lg bg-line" />
-      <div className="mt-10 grid gap-8 lg:grid-cols-[1.15fr_1fr]">
-        <div className="aspect-[1.586/1] animate-pulse rounded-[14px] bg-line" />
-        <div className="grid content-start gap-5">
-          <div className="h-32 animate-pulse rounded-2xl bg-line" />
-          <div className="h-48 animate-pulse rounded-2xl bg-line" />
-        </div>
-      </div>
     </div>
   )
 }

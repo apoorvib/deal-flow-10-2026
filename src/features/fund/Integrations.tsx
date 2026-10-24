@@ -7,6 +7,7 @@ import { api, isMock } from '../../lib/api/client'
 import { cn } from '../../lib/cn'
 import { shortDate } from '../../lib/format'
 import type { Integration, IntegrationId } from '../../lib/types'
+import { Skeleton } from '../../components/ui/skeleton'
 
 export const PLATFORMS: Record<IntegrationId, { name: string; logo: string; job: string }> = {
   carta: { name: 'Carta', logo: '/img/platforms/carta.png', job: 'Cap tables & fund admin' },
@@ -28,7 +29,21 @@ function useIntegrations() {
 export function IntegrationsManager() {
   const { list, replace } = useIntegrations()
   const [busy, setBusy] = useState<IntegrationId | null>(null)
-  if (!list) return <div className="h-40 animate-pulse bg-line" />
+  if (!list)
+    return (
+      <div className="space-y-4" role="status" aria-busy="true" aria-label="Loading">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center gap-4">
+            <Skeleton className="size-9 rounded-[8px]" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-44" />
+            </div>
+            <Skeleton className="h-9 w-24" />
+          </div>
+        ))}
+      </div>
+    )
 
   const run = async (iid: IntegrationId, fn: () => Promise<Integration>, message?: string) => {
     setBusy(iid)
@@ -102,7 +117,7 @@ function Sync({ label, on, onChange }: { label: string; on: boolean; onChange: (
 /** Compact row for the fund dashboard. */
 export function IntegrationsRow() {
   const { list } = useIntegrations()
-  if (!list) return null
+  if (!list) return <Skeleton className="mt-5 h-[58px]" />
   const connected = list.filter((x) => x.connected)
   return (
     <section className="mt-5 flex flex-wrap items-center justify-between gap-4 border border-line bg-raised px-6 py-4 shadow-card">

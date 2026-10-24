@@ -10,6 +10,7 @@ import { BRAND } from './lib/brand'
 import { motionEase } from './lib/format'
 import { RequireRole, homeFor, useAuth } from './lib/auth'
 import { AdminBar } from './components/AdminBar'
+import { Skeleton } from './components/ui/skeleton'
 import AdminConsole from './pages/AdminConsole'
 import Deals from './pages/Deals'
 import FindPassport from './pages/FindPassport'
@@ -45,8 +46,10 @@ function Wordmark({ className }: { className?: string }) {
 }
 
 function AccountMenu() {
-  const { user, signOut } = useAuth()
+  const { user, loading, signOut } = useAuth()
   const navigate = useNavigate()
+  // Until the session is known, hold the space rather than flash "Sign in" at a signed-in user.
+  if (loading) return <Skeleton className="h-8 w-28 rounded-full" />
   if (!user) {
     return (
       <Link to="/signin" className="flex items-center gap-1.5 text-[17px] text-ink transition-colors hover:text-accent">
@@ -92,7 +95,7 @@ function AccountMenu() {
 }
 
 function Header() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   return (
     <header className="relative z-30">
       {/* Trust bar */}
@@ -106,8 +109,8 @@ function Header() {
         <div className="mx-auto flex h-[76px] max-w-6xl items-center gap-10 px-5 sm:px-8">
           <Wordmark />
           {/* Marketing links are for prospects; signed-in users get Dashboard and their account menu instead. */}
-          <nav className={user ? 'flex-1' : 'hidden flex-1 items-center gap-7 lg:flex'} aria-label="Main">
-            {!user && NAV.map((n) => (
+          <nav className={user || loading ? 'flex-1' : 'hidden flex-1 items-center gap-7 lg:flex'} aria-label="Main">
+            {!user && !loading && NAV.map((n) => (
               <NavLink key={n.label} to={n.to} className="text-[17px] text-ink transition-colors hover:text-accent">
                 {n.label}
               </NavLink>

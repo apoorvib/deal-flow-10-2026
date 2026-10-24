@@ -16,6 +16,7 @@ import { ValidityRing } from '../components/ValidityRing'
 import { cn } from '../lib/cn'
 import { compactUsd, dateTime, daysUntil, longDate, shortDate, usd } from '../lib/format'
 import { INVESTOR_TYPE_LABEL, PATHWAY_LABEL, type Fund, type IncomingInvestor, type IncomingStatus, type IssuerOverview, type Passport } from '../lib/types'
+import { FundDashboardSkeleton, Skeleton } from '../components/ui/skeleton'
 
 const STATUS: Record<IncomingStatus, { label: string; tone: 'ok' | 'warn' | 'neutral' | 'danger' }> = {
   verified: { label: 'Cleared', tone: 'ok' },
@@ -53,17 +54,7 @@ export default function FundDashboard() {
     return data.investors.filter((i) => f.match(i.status) && (!needle || i.name.toLowerCase().includes(needle)))
   }, [data, filter, q])
 
-  if (!data) {
-    return (
-      <div className="min-h-[70vh] bg-surface">
-        <div className="mx-auto max-w-6xl space-y-5 px-5 pt-12 sm:px-8">
-          <div className="h-10 w-72 animate-pulse bg-line" />
-          <div className="h-32 animate-pulse bg-line" />
-          <div className="h-96 animate-pulse bg-line" />
-        </div>
-      </div>
-    )
-  }
+  if (!data) return <FundDashboardSkeleton />
 
   const inv = data.investors
   const cleared = inv.filter((i) => i.status === 'verified')
@@ -383,7 +374,7 @@ function FundPassport({ fund }: { fund: Fund }) {
     if (user?.passportId) api.getPassport(user.passportId).then(setP, () => setP(null))
     else setP(null)
   }, [user?.passportId])
-  if (p === undefined) return null
+  if (p === undefined) return <Skeleton className="mt-5 h-[88px]" />
 
   if (!p) {
     return (

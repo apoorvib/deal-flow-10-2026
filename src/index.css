@@ -133,3 +133,14 @@ input[type='number']::-webkit-outer-spin-button {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Skeleton shimmer: a soft band sweeping across placeholder blocks. Reduced motion stops it (rule above). */
+.skeleton {
+  background: linear-gradient(90deg, var(--line) 0%, color-mix(in oklab, var(--line) 45%, var(--raised)) 50%, var(--line) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}

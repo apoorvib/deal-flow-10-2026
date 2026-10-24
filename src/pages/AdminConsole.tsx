@@ -8,6 +8,7 @@ import { api, isMock } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import type { AdminView, Decision } from '../lib/types'
+import { PageShellSkeleton } from '../components/ui/skeleton'
 
 /** Showcase console: switch personas and jump to any screen in one click. */
 export default function AdminConsole() {
@@ -24,7 +25,7 @@ export default function AdminConsole() {
     if (admin.viewingAs !== 'admin') switchTo('admin')
   }, [admin, switchTo])
 
-  if (loading) return null
+  if (loading) return <PageShellSkeleton />
   if (!admin) return isMock ? <EnterShowcase /> : <Navigate to="/signin?as=admin&next=/admin" replace />
 
   const run = async (key: string, fn: () => Promise<void>) => {

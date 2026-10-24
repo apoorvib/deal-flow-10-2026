@@ -13,7 +13,7 @@ import { cn } from '../lib/cn'
 import { dateTime } from '../lib/format'
 import { setSession } from '../lib/session'
 import type { Passport, Verification } from '../lib/types'
-import { PageSkeleton } from './PassportPage'
+import { Skeleton, StatusSkeleton } from '../components/ui/skeleton'
 
 export default function Status() {
   const { id = '' } = useParams()
@@ -53,7 +53,7 @@ export default function Status() {
   }, [decision, id, refresh])
 
   if (error) return <Missing message={error} />
-  if (!v) return <PageSkeleton />
+  if (!v) return <StatusSkeleton />
 
   const d = v.evaluation.decision
 
@@ -90,7 +90,7 @@ function Approved({ passport, signedIn, home }: { passport: Passport | null; sig
             <PassportCard data={{ ...passport, status: 'active' }} />
           </motion.div>
         ) : (
-          <div className="aspect-[1.586/1] animate-pulse rounded-[14px] bg-line" />
+          <Skeleton className="aspect-[1.586/1] rounded-[14px]" />
         )}
       </div>
       {passport && (

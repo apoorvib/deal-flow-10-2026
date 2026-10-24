@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { Navigate, useLocation } from 'react-router-dom'
 import { api } from './api/client'
 import type { AdminContext, AdminView, Role, User } from './types'
+import { PageShellSkeleton } from '../components/ui/skeleton'
 
 interface AuthState {
   user: User | null
@@ -50,7 +51,7 @@ export const homeFor = (role: Role) => (role === 'issuer' ? '/fund' : role === '
 export function RequireRole({ role, children }: { role: Role; children: ReactNode }) {
   const { user, loading } = useAuth()
   const location = useLocation()
-  if (loading) return null
+  if (loading) return <PageShellSkeleton />
   if (!user) return <Navigate to={`/signin?as=${role}&next=${encodeURIComponent(location.pathname)}`} replace />
   if (user.role !== role) return <Navigate to={homeFor(user.role)} replace />
   return <>{children}</>

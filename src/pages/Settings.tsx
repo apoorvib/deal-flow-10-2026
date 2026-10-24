@@ -9,6 +9,7 @@ import { api } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import type { Role, UserSettings } from '../lib/types'
+import { PageShellSkeleton, SettingsSkeleton } from '../components/ui/skeleton'
 
 /** Which notification switches each account type gets. Keys match the backend's notification settings. */
 export const SETTINGS_NOTIFICATIONS: Record<Role, { key: string; label: string; hint: string }[]> = {
@@ -38,7 +39,7 @@ export default function Settings() {
     })
   }, [user])
 
-  if (loading) return null
+  if (loading) return <PageShellSkeleton />
   if (!user) return <Navigate to="/signin?next=/settings" replace />
 
   const update = async (patch: Partial<Omit<UserSettings, 'email'>>, message = 'Saved') => {
@@ -53,7 +54,7 @@ export default function Settings() {
         <h1 className="display text-[clamp(30px,4vw,40px)] text-ink">Settings</h1>
 
         {!s ? (
-          <div className="mt-8 space-y-5">{[0, 1, 2].map((i) => <div key={i} className="h-40 animate-pulse bg-line" />)}</div>
+          <SettingsSkeleton />
         ) : (
           <div className="mt-8 grid gap-5">
             <Section icon={<UserRound className="size-5" />} title="Profile">
