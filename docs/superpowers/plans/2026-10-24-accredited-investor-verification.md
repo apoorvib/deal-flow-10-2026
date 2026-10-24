@@ -4,7 +4,11 @@
 
 **Goal:** Ship a demoable verification service where two AI agents from different vendors adversarially review an investor's documents, a deterministic validator confirms the Rule 501(a) arithmetic, and every step is traced into an audit trail.
 
-**Architecture:** A linear pipeline of stage functions over one `Case` object. Document understanding is a 4-round LLM debate (extract → challenge → respond → adjudicate) run across two vendors via the Nicrron gateway, hosted in a Roundtable thread. A deterministic validator independently checks the statutory thresholds; disagreement between the agents' recommendation and the validator forces human review. PRISM traces the whole tree.
+**Architecture:** A linear pipeline of stage functions over one `Case` object. Document understanding is a single 4-round LLM debate (extract → challenge → respond → adjudicate) over the investor's **entire document set at once**, run across two vendors via the Nicrron gateway and hosted in a Roundtable thread. A deterministic validator independently checks the statutory thresholds; disagreement between the agents' recommendation and the validator forces human review. PRISM traces the whole tree.
+
+**Customer, stated precisely:** 506(c) issuers — syndicates, SPVs, and real-estate sponsors (`plan.md` §10 pain 4–5). **Not** "small VC funds": most VC funds raise under 506(b), which requires no verification at all, and 506(c) is only ~7% of Reg D (`plan.md` §8). Claiming VC funds invites a correct and deflating objection from any judge who knows private markets.
+
+**Liability claim, stated precisely:** a documented, proper process **generally** preserves the issuer's Reg D exemption even if the investor lied (`plan.md` §11). Do not harden "generally" into "always."
 
 **Tech Stack:** Python 3.11, FastAPI + uvicorn, pydantic v2, `openai` SDK pointed at Nicrron, `prismtrace-sdk` (or OTel exporter), `httpx`, pytest.
 
@@ -12,17 +16,28 @@
 
 ## Global Constraints
 
-- **Judging is tonight.** ~6 hours. Every task has a time box; when it expires, take the fallback in spec §10 and move on.
+- **Judging is tonight.** Every task has a time box; when it expires, take the fallback and move on. See **Cut Ladder** at the bottom — the honest task sum exceeds the clock, so cuts are planned, not improvised.
 - **All five sponsor tools must be integrated** (organizer rule): Nicrron, Roundtable, PRISM deep; akta.pro, Solari thin.
-- **Cost is a non-constraint.** `openai/gpt-6-luna` = $0.10/1M prompt tokens. Optimize for judgment quality, not call count.
-- **Model IDs, exact:** extractor `openai/gpt-6-luna`, challenger `anthropic/claude-sonnet-5`, adjudicator `openai/gpt-6-astra`, classifier `openai/gpt-6-luna`. Challenger MUST NOT be an OpenAI model — cross-vendor independence is the whole point.
+- **Cost is a non-constraint.** `openai/gpt-6-luna` = $0.10/1M prompt tokens.
+- **Model IDs, exact:** extractor `openai/gpt-6-luna`, challenger `anthropic/claude-sonnet-5`, adjudicator `openai/gpt-6-astra`, classifier `openai/gpt-6-luna`. The challenger MUST NOT be an OpenAI model — cross-vendor independence is the entire point of the design.
 - **Nicrron base URL, exact:** `https://api.nicrron.ai/v1`
+- **Assume text-only documents until Task 1 proves otherwise.** No model in the Nicrron catalog advertises image input. Everything downstream is written for pasted/extracted text and upgrades cleanly if Task 1 finds vision.
 - **The model never decides alone.** `decision == "auto_approved"` requires the adjudicator's recommendation AND the validator to agree.
 - **Confidence threshold:** `0.85`. **Near-threshold band:** `0.05` (5%).
-- **Test strategy, deliberate:** full TDD on `validator.py` and `triage.py` — they are pure functions and demo case 5 depends on their exact behavior. Integration tasks (Roundtable, Solari, akta, PRISM) get a smoke check instead of unit tests; you cannot meaningfully unit-test an SDK you have never run.
+- **One debate per case, not per document.** A per-document challenger structurally cannot see "W-2 employer ≠ 1040," which is one of its own named failure modes.
+- **Test strategy, deliberate:** full TDD on `validator.py` and `triage.py` — pure functions whose exact behavior the demo depends on. Integration tasks get smoke checks; an SDK you have never run cannot be meaningfully unit-tested.
 - **Every external call is cached.** The full demo must run with WiFi unplugged.
-- **Never use real investor data.** Fixtures are synthetic and visibly watermarked.
-- **Env vars:** `NICRRON_API_KEY`, `PRISMTRACE_API_KEY`, `ROUNDTABLE_API_KEY`, `AKTA_API_KEY`, `SOLARI_API_KEY`, `DEMO_MODE` (`live` | `cached`).
+- **Never use real investor data, and never bind a real person's real records to synthetic financials.** See Task 2 step 4.
+- **Env vars:** `NICRRON_API_KEY`, `PRISMTRACE_API_KEY`, `ROUNDTABLE_API_KEY`, `AKTA_API_KEY`, `SOLARI_API_KEY`, `DEMO_MODE` (`live` | `cached`), `VISION_ENABLED` (`0` | `1`).
+
+## Provisioning Order (do this before Task 1, it is not all parallel)
+
+1. **Nicrron** — redeem `BETAWORKS250` at `nicrron.ai/redeem?code=BETAWORKS250`, confirm email, create key. Credits die 11:59 PM ET tonight.
+2. **PRISM** — signup → copy key → **land a first trace** → *then* Settings → Billing & usage → `DEALFLOW`. The credit redemption is gated on a trace already arriving, so PRISM cannot be fully provisioned up front. **One workspace per team:** Apoorv signs up as owner and invites the others. The frontend dev must NOT sign up independently or you split the team across two workspaces.
+3. **akta.pro** — slowest. Stripe checkout with promo code `DEALFLOW50`.
+4. **Solari** — redeem `VC-HACK1MO-DNNXSYYM`.
+5. **Roundtable** — account + workspace.
+6. **Ask the organizers, in the first ten minutes:** does "use all five sponsors" require meeting each sponsor's *own* qualification rules? `ninoo.md` says "Three rules. Miss any one of them and your entry is disqualified," one of which is building in Ninoo Builder. If their answer is yes, this plan needs rethinking while there is still time to rethink it.
 
 ---
 
@@ -31,34 +46,136 @@
 | File | Responsibility |
 |---|---|
 | `app/models.py` | All pydantic models. No logic. |
+| `app/store.py` | Disk-backed case persistence (survives `--reload`). |
 | `app/main.py` | FastAPI routes + SSE streaming. |
 | `app/pipeline.py` | Stage orchestration; yields stage events. |
-| `app/nicrron.py` | Nicrron client, model constants, JSON-mode helper, doc classification. |
-| `app/debate.py` | The 4-round adversarial debate. |
+| `app/nicrron.py` | Nicrron client, model constants, JSON helper, doc classification. |
+| `app/debate.py` | The 4-round adversarial debate over the document set. |
 | `app/validator.py` | Deterministic Rule 501(a) checks. **TDD.** |
-| `app/triage.py` | Decision routing + conflict detection. **TDD.** |
+| `app/triage.py` | Decision routing + conflict detection + PRISM guardrail. **TDD.** |
 | `app/venue.py` | `DebateVenue` protocol, `LocalJsonVenue`, `RoundtableVenue`. |
 | `app/tracing.py` | PRISM init + span helper. |
 | `app/letter.py` | Accreditation letter generation. |
 | `app/adapters/solari.py` | BrokerCheck lookup + cache. |
 | `app/adapters/akta.py` | Company enrichment + cache. |
 | `fixtures/cases/` | The 5 demo cases. |
+| `fixtures/docs/` | Synthetic document text. |
 | `fixtures/cache/` | Cached external responses. |
-| `tests/` | `test_validator.py`, `test_triage.py`, `test_debate.py` |
+| `tests/` | `test_validator.py`, `test_triage.py`, `test_debate.py`, `test_nicrron.py` |
 
 ---
 
-## Task 1: Skeleton, models, and mocked API contract
+## Task 1: SPIKE — document modality (10 min, FIRST API call of the night)
 
-**Time box: 30 min.** Highest priority — unblocks the frontend engineer permanently.
+Not a feature task. Output is a **decision** that every later task depends on. The adversarial review found that no model in the live catalog advertises image input, so this is now a load-bearing unknown rather than a formality.
+
+- [ ] **Step 1: Confirm what the catalog actually says**
+
+Run: `curl -s https://api.nicrron.ai/v1/models | python -m json.tool | grep -i -E 'modal|vision|image' | head -40`
+
+- [ ] **Step 2: Try one image anyway — the catalog may understate**
+
+```python
+# scratch_vision.py  (throwaway)
+import base64, os
+from openai import OpenAI
+c = OpenAI(base_url="https://api.nicrron.ai/v1", api_key=os.environ["NICRRON_API_KEY"])
+b64 = base64.b64encode(open("fixtures/docs/sample_w2.png", "rb").read()).decode()
+try:
+    r = c.chat.completions.create(
+        model="openai/gpt-6-luna",
+        messages=[{"role": "user", "content": [
+            {"type": "text", "text": "What dollar amount appears in box 1?"},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+        ]}])
+    print("VISION OK:", r.choices[0].message.content)
+except Exception as e:
+    print("VISION FAILED:", e)
+```
+
+- [ ] **Step 3: Set `VISION_ENABLED` and record the consequences**
+
+| Outcome | Action |
+|---|---|
+| An image is read correctly | `VISION_ENABLED=1`. Fixtures may be images. `signs_of_alteration` stays in the challenger's failure modes. |
+| Images rejected by luna but accepted by `anthropic/claude-sonnet-5` | `VISION_ENABLED=1`, extractor becomes Sonnet 5, and the **challenger moves to a third vendor** (`deepseek/deepseek-v4-flash`) to preserve cross-vendor independence. |
+| No model reads images | `VISION_ENABLED=0`. **Documents are text only.** Fixtures are text. `signs_of_alteration` is **removed** from the challenger prompt — left in, it invites the model to invent visual evidence it cannot have. Demo case 4's forgery must be arithmetic (Task 2). |
+
+- [ ] **Step 4: Tell the team the outcome in one line before anyone writes a fixture**
+
+---
+
+## Task 2: Demo fixtures (30 min, starts immediately, hand to the second backend engineer)
+
+**Moved to the front.** The debate loop, validator, triage, letter, and caching are all untestable without documents — scheduling fixtures last made every downstream task unverifiable. This is also the right task to delegate: it is self-contained, needs no integration keys, and if it slips, nothing architectural breaks.
 
 **Files:**
-- Create: `app/models.py`, `app/main.py`, `requirements.txt`, `.env.example`
-- Create: `fixtures/cases/mock_case.json`
+- Create: `fixtures/docs/*.txt` (or `.png` if `VISION_ENABLED=1`)
+- Create: `fixtures/cases/case1_clean_income.json` … `case5_temporal_conflict.json`
+
+- [ ] **Step 1: Write the four document bodies for case 1 (clean income)**
+
+`fixtures/docs/case1_w2_2025.txt`, `case1_w2_2024.txt`, `case1_1040_2025.txt`. Realistic field labels, consistent employer name across W-2 and 1040, all amounts comfortably above $200,000. Every file carries a first line: `SYNTHETIC SPECIMEN — NOT A REAL TAX DOCUMENT`.
+
+- [ ] **Step 2: Write case 4's forgery as an ARITHMETIC forgery**
+
+`fixtures/docs/case4_bank_statement.txt`. The catch must survive a text-only path, so it cannot be font or alignment. Make the numbers betray it:
+
+```
+SYNTHETIC SPECIMEN — NOT A REAL BANK STATEMENT
+Statement period: 2026-08-01 to 2026-08-31
+Opening balance:        1,204,330.00
+Total deposits:            18,400.00
+Total withdrawals:         22,100.00
+Closing balance:        1,340,630.00     <-- does not follow from the above
+Statement generated:    2026-07-14       <-- predates the period it reports
+```
+
+Two independent, stateable inconsistencies: the closing balance does not reconcile, and the generation date precedes the statement period. A challenger told to look for `face_arithmetic_error` will find both.
+
+- [ ] **Step 3: Write case 5 as a TEMPORAL conflict — this is the showpiece**
+
+The original `$199,400` beat was a coin flip: all three models would likely notice it was under $200,000, and because 199,400 sits inside the 5% near-threshold band, triage would have returned `needs_review` for a *boring* reason — making a misfire invisible. Replace it with a conflict the validator is genuinely better at than a model:
+
+`fixtures/docs/case5_1040_2025.txt`:
+```
+SYNTHETIC SPECIMEN — NOT A REAL TAX DOCUMENT
+Tax year: 2025
+Filing status: Single
+Total income ................ 212,000
+Adjusted gross income ....... 185,000
+```
+`fixtures/docs/case5_w2_2025.txt` → wages `240,000` (tax year 2025)
+`fixtures/docs/case5_w2_2024.txt` → wages `185,000` (tax year 2024)
+
+Models routinely approve this — by averaging the two years, or by reading "total income $212,000" instead of the 2024 figure. `INCOME` fails deterministically because 501(a)(6) requires the threshold in **each** of the two most recent years, and $185,000 in 2024 is 7.5% below $200,000 — comfortably outside the near-threshold band, so the conflict branch fires cleanly rather than being masked. It also survives a judge saying "re-run it."
+
+- [ ] **Step 4: Case 2 (license) carries NO financial documents**
+
+The BrokerCheck lookup needs a **real public CRD record** to return anything. Do not attach synthetic income documents to a real, named, licensed person — that is the one thing tonight that could genuinely embarrass the team. Case 2 claims the license path only, carries that person's real public license data and nothing else, and asserts nothing financial about them. **Better still: use a consenting teammate who holds a CRD.**
+
+- [ ] **Step 5: Case 3 (entity) names a company present in the akta cache**
+
+Entity LLC subscribing, `subject_type: "entity"`, `claimed_path: "entity_assets"`, with `entity_domain` matching the unresolvable shell entry built in Task 11.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add fixtures/
+git commit -m "feat: five synthetic demo fixtures incl. arithmetic forgery and temporal conflict"
+```
+
+---
+
+## Task 3: Skeleton, models, disk-backed store, mocked contract
+
+**Time box: 35 min.** Unblocks the frontend engineer permanently.
+
+**Files:**
+- Create: `app/models.py`, `app/store.py`, `app/main.py`, `requirements.txt`, `.env.example`
 
 **Interfaces:**
-- Consumes: nothing
-- Produces: every model below, plus routes `POST /cases`, `POST /cases/{id}/documents`, `POST /cases/{id}/run`, `GET /cases/{id}`, `GET /cases`, `GET /cases/{id}/letter`
+- Produces: all models below; `store.save(case)`, `store.get(case_id) -> Case | None`, `store.all() -> list[Case]`; routes `POST /cases`, `POST /cases/{id}/documents`, `POST /cases/{id}/run`, `GET /cases/{id}`, `GET /cases`, `GET /cases/{id}/letter`
 
 - [ ] **Step 1: Write `requirements.txt`**
 
@@ -70,7 +187,6 @@ openai==1.54.0
 httpx==0.27.2
 python-multipart==0.0.12
 pytest==8.3.3
-pytest-asyncio==0.24.0
 python-dotenv==1.0.1
 ```
 
@@ -139,6 +255,15 @@ class RuleResult(BaseModel):
     reason: str
 
 
+class Attestations(BaseModel):
+    """Written representations the investor must make. 506(c)'s safe harbors require
+    these in addition to documents — collecting them IS part of 'reasonable steps'
+    (plan.md §1), and three validator rules are unsatisfiable without them."""
+    current_year_income_expectation: bool = False
+    liabilities_complete: bool = False
+    funds_not_third_party_financed: bool = False
+
+
 class AuditEvent(BaseModel):
     ts: str
     stage: str
@@ -155,6 +280,7 @@ class Case(BaseModel):
     entity_domain: Optional[str] = None
     crd_number: Optional[str] = None
     commitment_usd: Optional[int] = None
+    attestations: Attestations = PydField(default_factory=Attestations)
     documents: list[Document] = PydField(default_factory=list)
     debate: list[DebateTurn] = PydField(default_factory=list)
     extracted: dict[str, Field] = PydField(default_factory=dict)
@@ -176,106 +302,145 @@ class CreateCaseRequest(BaseModel):
     entity_domain: Optional[str] = None
     crd_number: Optional[str] = None
     commitment_usd: Optional[int] = None
+    attestations: Attestations = PydField(default_factory=Attestations)
 ```
 
-- [ ] **Step 3: Write `app/main.py` returning the mock fixture**
+- [ ] **Step 3: Write `app/store.py` — cases survive a server restart**
+
+Without this, every `uvicorn --reload` wipes the frontend dev's test cases, which is the real tax on working in parallel.
 
 ```python
-import json, uuid, pathlib
+import pathlib
+from app.models import Case
+
+DIR = pathlib.Path("fixtures/live_cases")
+DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _path(case_id: str) -> pathlib.Path:
+    return DIR / f"{case_id}.json"
+
+
+def save(case: Case) -> None:
+    _path(case.case_id).write_text(case.model_dump_json(indent=2))
+
+
+def get(case_id: str) -> Case | None:
+    p = _path(case_id)
+    if not p.exists():
+        return None
+    return Case.model_validate_json(p.read_text())
+
+
+def all() -> list[Case]:
+    out = []
+    for p in sorted(DIR.glob("case_*.json")):
+        try:
+            out.append(Case.model_validate_json(p.read_text()))
+        except Exception:
+            continue
+    return out
+```
+
+- [ ] **Step 4: Write `app/main.py`**
+
+```python
+import uuid
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from app import store
 from app.models import Case, CreateCaseRequest, Document
 
 app = FastAPI(title="Accredited Investor Verification")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-CASES: dict[str, Case] = {}
-MOCK = json.loads(pathlib.Path("fixtures/cases/mock_case.json").read_text())
+
+def _require(case_id: str) -> Case:
+    case = store.get(case_id)
+    if case is None:
+        raise HTTPException(404, "case not found")
+    return case
 
 
 @app.post("/cases")
 def create_case(req: CreateCaseRequest):
     case_id = f"case_{uuid.uuid4().hex[:8]}"
-    CASES[case_id] = Case(case_id=case_id, **req.model_dump())
+    store.save(Case(case_id=case_id, **req.model_dump()))
     return {"case_id": case_id}
 
 
 @app.post("/cases/{case_id}/documents")
 async def upload_document(case_id: str, file: UploadFile = File(...)):
-    case = CASES.get(case_id)
-    if not case:
-        raise HTTPException(404, "case not found")
-    doc = Document(doc_id=f"doc_{uuid.uuid4().hex[:6]}", filename=file.filename)
+    case = _require(case_id)
+    raw = await file.read()
+    doc = Document(doc_id=f"doc_{uuid.uuid4().hex[:6]}", filename=file.filename,
+                   text=raw.decode("utf-8", errors="replace"))
     case.documents.append(doc)
+    store.save(case)
     return {"doc_id": doc.doc_id, "doc_type": doc.doc_type}
 
 
 @app.get("/cases/{case_id}")
 def get_case(case_id: str):
-    case = CASES.get(case_id)
-    if not case:
-        raise HTTPException(404, "case not found")
-    return case
+    return _require(case_id)
 
 
 @app.get("/cases")
 def list_cases():
-    return [
-        {"case_id": c.case_id, "subject_name": c.subject_name,
-         "claimed_path": c.claimed_path, "decision": c.decision}
-        for c in CASES.values()
-    ]
+    return [{"case_id": c.case_id, "subject_name": c.subject_name,
+             "claimed_path": c.claimed_path, "decision": c.decision,
+             "conflict": c.conflict} for c in store.all()]
 
 
 @app.get("/cases/{case_id}/letter")
 def get_letter(case_id: str):
-    case = CASES.get(case_id)
-    if not case:
-        raise HTTPException(404, "case not found")
+    case = _require(case_id)
     return {"letter_md": case.letter_md, "trace_url": case.trace_url}
 
 
 @app.post("/cases/{case_id}/run")
 def run_mock(case_id: str):
-    """Replaced by the real SSE pipeline in Task 11. Returns the mock shape now
-    so the frontend can build against a realistic payload immediately."""
-    return MOCK
+    """Replaced by the real SSE pipeline in Task 12. Returns the stored case now so
+    the frontend can build against a realistic payload immediately."""
+    return _require(case_id)
 ```
 
-- [ ] **Step 4: Write `fixtures/cases/mock_case.json`**
-
-A complete `Case` payload with two debate turns, one challenge, one `RuleResult`, and `decision: "auto_approved"`. It only has to be shape-accurate — the frontend reads keys, not values.
-
-- [ ] **Step 5: Run the server and verify the contract**
-
-Run: `uvicorn app.main:app --reload --port 8000`
-Then: `curl -s -X POST localhost:8000/cases -H 'Content-Type: application/json' -d '{"subject_type":"individual","claimed_path":"income","subject_name":"Jane Doe"}'`
-Expected: `{"case_id":"case_xxxxxxxx"}`
-
-- [ ] **Step 6: Commit and tell the frontend engineer the contract is frozen**
+- [ ] **Step 5: Verify the contract and that it survives a restart**
 
 ```bash
-git add requirements.txt .env.example app/ fixtures/
-git commit -m "feat: API contract, domain models, mocked run endpoint"
+uvicorn app.main:app --reload --port 8000 &
+ID=$(curl -s -X POST localhost:8000/cases -H 'Content-Type: application/json' \
+  -d '{"subject_type":"individual","claimed_path":"income","subject_name":"Jane Specimen"}' \
+  | python -c "import sys,json;print(json.load(sys.stdin)['case_id'])")
+# restart the server, then:
+curl -s localhost:8000/cases/$ID | head -5
+```
+Expected: the case still resolves after the restart.
+
+- [ ] **Step 6: Commit, then tell the frontend engineer the contract is frozen**
+
+```bash
+git add requirements.txt .env.example app/
+git commit -m "feat: API contract, domain models, disk-backed case store"
 ```
 
 ---
 
-## Task 2: PRISM tracing (wire before anything else exists)
+## Task 4: PRISM tracing (wire before anything else exists)
 
-**Time box: 25 min.** Retrofitting tracing is miserable — do it while there are only two files.
+**Time box: 25 min.** Retrofitting tracing is miserable. Note the provisioning order above — the `DEALFLOW` credit needs a first trace to have already landed.
 
 **Files:**
 - Create: `app/tracing.py`
 - Modify: `app/main.py` (call `init_tracing()` at import)
 
 **Interfaces:**
-- Produces: `init_tracing() -> None`, `span(name: str, **attrs)` context manager yielding an object with `.set(**attrs)`, `current_trace_url() -> str | None`
+- Produces: `init_tracing() -> None`, `span(name, **attrs)` context manager yielding an object with `.set(**attrs)`, `current_trace_url() -> str | None`
 
-- [ ] **Step 1: Install and read the key**
+- [ ] **Step 1: Install**
 
 Run: `pip install prismtrace-sdk`
-If that package does not resolve within 5 minutes, fall back to OTel: `pip install opentelemetry-sdk opentelemetry-exporter-otlp` and point the OTLP exporter at PRISM per `blockconvey.com/docs`.
+If it does not resolve in 5 minutes: `pip install opentelemetry-sdk opentelemetry-exporter-otlp` and point the OTLP exporter at PRISM per `blockconvey.com/docs`.
 
 - [ ] **Step 2: Write `app/tracing.py` with a no-op fallback**
 
@@ -288,7 +453,7 @@ _tracer = None
 
 
 def init_tracing() -> None:
-    """Never let tracing failure break the pipeline — tracing is passive."""
+    """Tracing is passive — its failure must never break the pipeline."""
     global _ENABLED, _tracer
     key = os.getenv("PRISMTRACE_API_KEY")
     if not key:
@@ -338,7 +503,7 @@ def current_trace_url() -> str | None:
         return None
 ```
 
-- [ ] **Step 3: Smoke check that a span reaches PRISM**
+- [ ] **Step 3: Land a first trace — this unlocks the DEALFLOW credit**
 
 ```python
 # scratch_trace.py
@@ -348,7 +513,7 @@ with span("smoke.test", case_id="case_demo", stage="smoke") as s:
     s.set(result="ok")
 print("sent")
 ```
-Run: `python scratch_trace.py`, then confirm the span appears in the PRISM dashboard. If it does not appear within the time box, keep the local-logging path and move on — `tracing.py`'s interface does not change either way.
+Run it, confirm the span appears in the PRISM dashboard, **then** redeem `DEALFLOW` under Settings → Billing & usage. If the span never appears within the time box, keep the local-logging path — `tracing.py`'s interface is identical either way.
 
 - [ ] **Step 4: Commit**
 
@@ -358,82 +523,57 @@ git add app/tracing.py app/main.py && git commit -m "feat: PRISM tracing with lo
 
 ---
 
-## Task 3: SPIKE — does `gpt-6-luna` accept images? (10 min, decision only)
+## Task 5: SPIKE — can Solari load BrokerCheck? (15 min, decision only)
 
-Not a feature task. Output is a **decision**, not code you keep.
+Do this early. It is the flakiest integration; discovering it is unusable at hour five is fatal.
 
-- [ ] **Step 1: Send one image to luna**
-
-```python
-# scratch_vision.py
-import base64, os
-from openai import OpenAI
-c = OpenAI(base_url="https://api.nicrron.ai/v1", api_key=os.environ["NICRRON_API_KEY"])
-b64 = base64.b64encode(open("fixtures/sample_w2.png", "rb").read()).decode()
-r = c.chat.completions.create(
-    model="openai/gpt-6-luna",
-    messages=[{"role": "user", "content": [
-        {"type": "text", "text": "What dollar amount appears in box 1?"},
-        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
-    ]}],
-)
-print(r.choices[0].message.content)
-```
-
-- [ ] **Step 2: Record the decision in the spec's §12 Open Questions**
-
-- Reads the image → extractor stays `openai/gpt-6-luna`
-- Rejects images → set `EXTRACTOR_MODEL = "anthropic/claude-sonnet-5"` and move the challenger to a third vendor (`deepseek/deepseek-v4-flash`), preserving cross-vendor independence
-- Both fail → documents arrive as pasted **text** only; drop image upload from the demo
-
----
-
-## Task 4: SPIKE — can Solari load BrokerCheck? (15 min, decision only)
-
-Do this early. It is the flakiest integration, and discovering it is unusable at hour five is fatal.
-
-- [ ] **Step 1: Read the Solari docs**
-
-Docs PDF is linked in `resources.md`. Redeem code `VC-HACK1MO-DNNXSYYM` first.
+- [ ] **Step 1: Read the Solari docs** (PDF linked in `resources.md`; redeem `VC-HACK1MO-DNNXSYYM` first)
 
 - [ ] **Step 2: Drive one cloud browser to BrokerCheck**
 
-Navigate to `https://brokercheck.finra.org/`, search a known-real individual CRD, screenshot, return the page text. Time the whole round trip.
+Navigate to `https://brokercheck.finra.org/`, search the real CRD chosen in Task 2 step 4, screenshot, return page text. **Time the round trip.**
 
 - [ ] **Step 3: Record the decision**
 
-- Works under ~30s → wire live in Task 9 with a cache fallback
-- Works but slow/flaky → cache-first; live call only as a background refresh
-- Cannot reach it at all → pre-record a screen capture of the browser session and serve a cached `license_check`. Solari is still integrated (the call is real, just made ahead of time); say so honestly on stage.
+| Outcome | Action |
+|---|---|
+| Works under ~30s | Wire live in Task 10 with cache fallback |
+| Works but slow/flaky | Cache-first; live call only as background refresh |
+| Cannot reach it | Pre-record the browser session, serve a cached `license_check`. Solari is still genuinely integrated — the call is real, just made ahead of time. Say that plainly on stage. |
 
 ---
 
-## Task 5: Nicrron client and document classification
+## Task 6: Nicrron client and document classification
 
 **Time box: 30 min.**
 
 **Files:**
-- Create: `app/nicrron.py`
-- Create: `tests/test_nicrron.py`
+- Create: `app/nicrron.py`, `tests/test_nicrron.py`
 
 **Interfaces:**
-- Consumes: `app.models.Document`
-- Produces: `EXTRACTOR_MODEL`, `CHALLENGER_MODEL`, `ADJUDICATOR_MODEL`, `CLASSIFIER_MODEL`, `complete_json(model, system, user, image_b64=None) -> dict`, `classify_document(doc: Document) -> str`
+- Produces: `EXTRACTOR_MODEL`, `CHALLENGER_MODEL`, `ADJUDICATOR_MODEL`, `CLASSIFIER_MODEL`, `VISION_ENABLED`, `complete_json(model, system, user, image_b64=None) -> dict`, `classify_document(doc: Document) -> str`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
 # tests/test_nicrron.py
 import pytest
-from app.nicrron import _coerce_json
+from app.nicrron import _coerce_json, CHALLENGER_MODEL, EXTRACTOR_MODEL
 
 def test_coerce_json_strips_markdown_fence():
-    raw = '```json\n{"doc_type": "w2"}\n```'
-    assert _coerce_json(raw) == {"doc_type": "w2"}
+    assert _coerce_json('```json\n{"doc_type": "w2"}\n```') == {"doc_type": "w2"}
+
+def test_coerce_json_recovers_json_embedded_in_prose():
+    assert _coerce_json('Sure! {"doc_type": "1040"} hope that helps')["doc_type"] == "1040"
 
 def test_coerce_json_raises_on_garbage():
     with pytest.raises(ValueError):
         _coerce_json("I cannot help with that.")
+
+def test_challenger_is_a_different_vendor_than_extractor():
+    """Cross-vendor independence is the design's core claim. Same vendor twice
+    shares blind spots and the review becomes a rubber stamp."""
+    assert EXTRACTOR_MODEL.split("/")[0] != CHALLENGER_MODEL.split("/")[0]
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -451,9 +591,10 @@ from app.tracing import span
 
 BASE_URL = "https://api.nicrron.ai/v1"
 EXTRACTOR_MODEL = "openai/gpt-6-luna"
-CHALLENGER_MODEL = "anthropic/claude-sonnet-5"   # MUST be non-OpenAI
+CHALLENGER_MODEL = "anthropic/claude-sonnet-5"   # MUST be a different vendor
 ADJUDICATOR_MODEL = "openai/gpt-6-astra"
 CLASSIFIER_MODEL = "openai/gpt-6-luna"
+VISION_ENABLED = os.getenv("VISION_ENABLED", "0") == "1"
 
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 
@@ -465,7 +606,10 @@ def _coerce_json(raw: str) -> dict:
     except json.JSONDecodeError as e:
         start, end = cleaned.find("{"), cleaned.rfind("}")
         if start != -1 and end > start:
-            return json.loads(cleaned[start:end + 1])
+            try:
+                return json.loads(cleaned[start:end + 1])
+            except json.JSONDecodeError:
+                pass
         raise ValueError(f"model did not return JSON: {raw[:200]}") from e
 
 
@@ -474,16 +618,12 @@ def client() -> OpenAI:
 
 
 def complete_json(model: str, system: str, user: str, image_b64: str | None = None) -> dict:
-    content: list | str
-    if image_b64:
-        content = [
-            {"type": "text", "text": user},
-            {"type": "image_url",
-             "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
-        ]
-    else:
-        content = user
-    with span("nicrron.call", model=model, has_image=bool(image_b64)) as s:
+    content: list | str = user
+    if image_b64 and VISION_ENABLED:
+        content = [{"type": "text", "text": user},
+                   {"type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{image_b64}"}}]
+    with span("nicrron.call", model=model, vision=bool(image_b64 and VISION_ENABLED)) as s:
         r = client().chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": system},
@@ -516,13 +656,12 @@ def classify_document(doc: Document) -> str:
 
 - [ ] **Step 4: Run tests**
 
-Run: `pytest tests/test_nicrron.py -v`
-Expected: 2 passed
+Run: `pytest tests/test_nicrron.py -v` → 4 passed
 
 - [ ] **Step 5: Smoke-check a real call**
 
 Run: `python -c "from app.nicrron import complete_json, CLASSIFIER_MODEL; print(complete_json(CLASSIFIER_MODEL,'Reply JSON only.','Reply {\"ok\": true}'))"`
-Expected: `{'ok': True}`. A 401 means the key is unset; a 402 means credits were never redeemed.
+Expected: `{'ok': True}`. 401 = key unset. 402 = credits never redeemed.
 
 - [ ] **Step 6: Commit**
 
@@ -533,21 +672,22 @@ git commit -m "feat: Nicrron client, JSON coercion, document classification"
 
 ---
 
-## Task 6: The adversarial debate loop
+## Task 7: The adversarial debate over the document set
 
-**Time box: 95 min.** The centerpiece. Build it with plain function calls — Roundtable gets layered on in Task 10.
+**Time box: 90 min.** The centerpiece. Plain function calls — Roundtable layers on in Task 13.
+
+**One debate per case, over all documents at once.** Two reasons: a per-document challenger cannot detect `cross_document_inconsistency` (W-2 employer ≠ 1040), which is one of its own named failure modes and is exactly what cases 1 and 5 turn on; and per-document multiplies calls ~3×, which on venue WiFi is the difference between a demo and a progress bar.
 
 **Files:**
-- Create: `app/debate.py`
-- Create: `tests/test_debate.py`
+- Create: `app/debate.py`, `tests/test_debate.py`
 
 **Interfaces:**
-- Consumes: `app.models.{Document, Field, Challenge, Resolution, DebateTurn, AgentRecommendation}`, `app.nicrron.{complete_json, EXTRACTOR_MODEL, CHALLENGER_MODEL, ADJUDICATOR_MODEL}`
-- Produces: `FAILURE_MODES: list[str]`, `run_debate(doc: Document) -> DebateResult` where `DebateResult` has `.turns: list[DebateTurn]`, `.fields: dict[str, Field]`, `.recommendation: AgentRecommendation`
+- Consumes: `app.models.{Document, Field, Challenge, Resolution, DebateTurn, AgentRecommendation}`, `app.nicrron.{complete_json, EXTRACTOR_MODEL, CHALLENGER_MODEL, ADJUDICATOR_MODEL, VISION_ENABLED}`
+- Produces: `failure_modes() -> list[str]`, `run_debate(docs: list[Document]) -> DebateResult` with `.turns`, `.fields`, `.recommendation`
 
-- [ ] **Step 1: Write the failing orchestration test**
+- [ ] **Step 1: Write the failing orchestration tests**
 
-Tests the *loop*, not the models — the LLM calls are stubbed. This is the only part of the debate that can be deterministically tested.
+The loop is tested with stubbed model calls — that is the only deterministically testable part.
 
 ```python
 # tests/test_debate.py
@@ -555,56 +695,88 @@ from unittest.mock import patch
 from app.models import Document
 from app import debate
 
-DOC = Document(doc_id="d1", filename="w2.pdf", doc_type="w2", text="Wages: $214,500")
+DOCS = [
+    Document(doc_id="d1", filename="w2_2025.txt", doc_type="w2",
+             text="Box 1 Wages: $240,000  Tax year 2025  Employer: Acme Corp"),
+    Document(doc_id="d2", filename="w2_2024.txt", doc_type="w2",
+             text="Box 1 Wages: $185,000  Tax year 2024  Employer: Acme Corp"),
+]
 
-R1 = {"fields": {"wages_2025": {"value": 214500, "confidence": 0.95,
-                               "source_quote": "Wages: $214,500"}}}
-R2 = {"challenges": [{"field_name": "wages_2025", "failure_mode": "wrong_field",
-                     "reason": "Box 1 wages are not total income"}]}
-R3 = {"resolutions": [{"field_name": "wages_2025", "action": "DEFEND",
-                      "revised_value": None, "justification": "Document states wages only"}]}
-R4 = {"fields": {"wages_2025": {"value": 214500, "confidence": 0.93,
-                                "source_quote": "Wages: $214,500"}},
+R1 = {"fields": {
+    "income_year_1": {"value": 240000, "confidence": 0.95, "source_quote": "$240,000"},
+    "income_year_2": {"value": 185000, "confidence": 0.94, "source_quote": "$185,000"}}}
+R2 = {"challenges": [{"field_name": "income_year_2", "failure_mode": "wrong_field",
+                      "reason": "2024 wages may exclude bonus income"}]}
+R3 = {"resolutions": [{"field_name": "income_year_2", "action": "DEFEND",
+                       "revised_value": None, "justification": "Box 1 is the stated figure"}]}
+R4 = {"fields": R1["fields"],
       "recommendation": {"decision": "APPROVE", "trust_assessment": "consistent",
-                         "reasoning": "Wages exceed threshold", "open_disputes": []}}
+                         "reasoning": "Two-year average exceeds the threshold",
+                         "open_disputes": []}}
 
 
 def test_run_debate_produces_four_turns_in_order():
     with patch.object(debate, "complete_json", side_effect=[R1, R2, R3, R4]):
-        result = debate.run_debate(DOC)
+        result = debate.run_debate(DOCS)
     assert [t.round for t in result.turns] == [1, 2, 3, 4]
     assert [t.actor for t in result.turns] == [
-        "extractor", "challenger", "adjudicator", "adjudicator"]
+        "extractor", "challenger", "extractor", "adjudicator"]
+
+
+def test_one_debate_covers_all_documents_not_one_per_document():
+    """Four calls total for two documents — not eight."""
+    with patch.object(debate, "complete_json", side_effect=[R1, R2, R3, R4]) as m:
+        debate.run_debate(DOCS)
+    assert m.call_count == 4
+
+
+def test_all_document_text_reaches_the_challenger():
+    with patch.object(debate, "complete_json", side_effect=[R1, R2, R3, R4]) as m:
+        debate.run_debate(DOCS)
+    challenger_prompt = m.call_args_list[1].args[2]
+    assert "240,000" in challenger_prompt and "185,000" in challenger_prompt
 
 
 def test_challenged_field_is_marked_disputed():
     with patch.object(debate, "complete_json", side_effect=[R1, R2, R3, R4]):
-        result = debate.run_debate(DOC)
-    assert result.fields["wages_2025"].disputed is True
+        result = debate.run_debate(DOCS)
+    assert result.fields["income_year_2"].disputed is True
 
 
-def test_conceded_value_replaces_original():
-    r3_concede = {"resolutions": [{"field_name": "wages_2025", "action": "CONCEDE",
-                                   "revised_value": 198000,
-                                   "justification": "Misread the digit"}]}
-    r4_concede = {"fields": {"wages_2025": {"value": 198000, "confidence": 0.9,
-                                            "source_quote": "Wages: $198,000"}},
-                  "recommendation": {"decision": "DENY", "trust_assessment": "revised",
-                                     "reasoning": "Below threshold", "open_disputes": []}}
-    with patch.object(debate, "complete_json",
-                      side_effect=[R1, R2, r3_concede, r4_concede]):
-        result = debate.run_debate(DOC)
-    assert result.fields["wages_2025"].value == 198000
+def test_conceded_value_replaces_the_original():
+    r3 = {"resolutions": [{"field_name": "income_year_2", "action": "CONCEDE",
+                           "revised_value": 165000, "justification": "Misread"}]}
+    r4 = {"fields": {"income_year_2": {"value": 165000, "confidence": 0.9,
+                                       "source_quote": "$165,000"}},
+          "recommendation": {"decision": "DENY", "trust_assessment": "revised",
+                             "reasoning": "Below threshold", "open_disputes": []}}
+    with patch.object(debate, "complete_json", side_effect=[R1, R2, r3, r4]):
+        result = debate.run_debate(DOCS)
+    assert result.fields["income_year_2"].value == 165000
     assert result.recommendation.decision == "DENY"
 
 
-def test_challenger_is_not_an_openai_model():
-    from app.nicrron import CHALLENGER_MODEL, EXTRACTOR_MODEL
-    assert not CHALLENGER_MODEL.startswith("openai/")
-    assert EXTRACTOR_MODEL.split("/")[0] != CHALLENGER_MODEL.split("/")[0]
+def test_round3_is_skipped_when_there_are_no_challenges():
+    no_challenges = {"challenges": []}
+    with patch.object(debate, "complete_json",
+                      side_effect=[R1, no_challenges, R4]) as m:
+        result = debate.run_debate(DOCS)
+    assert m.call_count == 3
+    assert result.recommendation.decision == "APPROVE"
+
+
+def test_alteration_failure_mode_is_absent_without_vision():
+    """Text-only: asking for font/alignment evidence invites hallucination."""
+    with patch.object(debate, "VISION_ENABLED", False):
+        assert "signs_of_alteration" not in debate.failure_modes()
+
+
+def test_alteration_failure_mode_is_present_with_vision():
+    with patch.object(debate, "VISION_ENABLED", True):
+        assert "signs_of_alteration" in debate.failure_modes()
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [ ] **Step 2: Run them and watch them fail**
 
 Run: `pytest tests/test_debate.py -v`
 Expected: FAIL — `AttributeError: module 'app.debate' has no attribute 'run_debate'`
@@ -615,29 +787,34 @@ Expected: FAIL — `AttributeError: module 'app.debate' has no attribute 'run_de
 from dataclasses import dataclass, field as dc_field
 from app.models import (Document, Field, Challenge, Resolution,
                         DebateTurn, AgentRecommendation)
-from app.nicrron import (complete_json, EXTRACTOR_MODEL,
-                         CHALLENGER_MODEL, ADJUDICATOR_MODEL)
+from app.nicrron import (complete_json, EXTRACTOR_MODEL, CHALLENGER_MODEL,
+                         ADJUDICATOR_MODEL, VISION_ENABLED)
 from app.tracing import span
 
-FAILURE_MODES = [
+TEXT_FAILURE_MODES = [
     "misread_or_transposed_digits",
-    "wrong_field",                  # AGI vs total income vs wages
+    "wrong_field",                   # AGI vs total income vs wages
     "stale_or_wrong_tax_year",
-    "cross_document_inconsistency",
-    "face_arithmetic_error",        # totals that do not add up
-    "signs_of_alteration",          # font/alignment mismatch, impossible values
-    "unsupported_inference",        # a field the document never states
+    "cross_document_inconsistency",  # only detectable because all docs are in one debate
+    "face_arithmetic_error",         # totals that do not reconcile
+    "impossible_dates",              # e.g. generated before the period it reports
+    "unsupported_inference",         # a field no document states
 ]
+VISION_ONLY_FAILURE_MODES = ["signs_of_alteration"]   # font/alignment — needs pixels
 
-TARGET_FIELDS = {
-    "w2": ["wages", "tax_year", "employer_name"],
-    "1040": ["total_income", "adjusted_gross_income", "tax_year", "filing_status"],
-    "bank_statement": ["institution", "ending_balance", "statement_date"],
-    "brokerage_statement": ["institution", "ending_balance", "statement_date"],
-    "cpa_letter": ["attestation_type", "signer_name", "license_number", "letter_date"],
-    "trust_deed": ["entity_name", "trustee_name", "formation_date"],
-    "unknown": ["any_monetary_amount", "any_date"],
-}
+
+def failure_modes() -> list[str]:
+    return TEXT_FAILURE_MODES + (VISION_ONLY_FAILURE_MODES if VISION_ENABLED else [])
+
+
+TARGET_FIELDS = [
+    "income_year_1", "income_year_2", "income_current_year_expectation",
+    "filing_status", "total_assets", "total_liabilities",
+    "primary_residence_value", "primary_residence_debt",
+    "residence_debt_added_last_60_days",
+    "entity_total_assets", "entity_total_investments",
+    "employer_name", "institution", "tax_year", "statement_date",
+]
 
 
 @dataclass
@@ -647,153 +824,158 @@ class DebateResult:
     recommendation: AgentRecommendation | None = None
 
 
-def _parse_fields(raw: dict, doc_id: str) -> dict[str, Field]:
+def _parse_fields(raw: dict) -> dict[str, Field]:
     out = {}
     for name, f in (raw.get("fields") or {}).items():
         if not isinstance(f, dict):
             continue
-        out[name] = Field(
-            value=f.get("value"),
-            confidence=float(f.get("confidence", 0.0)),
-            source_quote=str(f.get("source_quote", "")),
-            doc_id=doc_id,
-        )
+        out[name] = Field(value=f.get("value"),
+                          confidence=float(f.get("confidence", 0.0)),
+                          source_quote=str(f.get("source_quote", "")),
+                          doc_id=str(f.get("doc_id", "")))
     return out
 
 
-def _doc_payload(doc: Document) -> str:
-    return (f"Document type: {doc.doc_type}\nFilename: {doc.filename}\n\n"
-            f"{(doc.text or '(image attached)')[:6000]}")
+def _payload(docs: list[Document]) -> str:
+    parts = []
+    for d in docs:
+        parts.append(f"--- DOCUMENT {d.doc_id} | type={d.doc_type} | {d.filename} ---\n"
+                     f"{(d.text or '(image attached)')[:4000]}")
+    return "\n\n".join(parts)
 
 
-def round1_extract(doc: Document) -> tuple[dict[str, Field], dict]:
-    wanted = TARGET_FIELDS.get(doc.doc_type, TARGET_FIELDS["unknown"])
+def _first_image(docs: list[Document]) -> str | None:
+    if not VISION_ENABLED:
+        return None
+    return next((d.image_b64 for d in docs if d.image_b64), None)
+
+
+def round1_extract(docs: list[Document]) -> dict[str, Field]:
     raw = complete_json(
         EXTRACTOR_MODEL,
-        "You extract financial facts from documents. Reply with JSON only. "
-        "Never guess: if the document does not state a value, omit the field.",
-        f"Extract these fields if present: {wanted}.\n"
-        'Reply {"fields": {"<name>": {"value": <number|string>, '
-        '"confidence": <0.0-1.0>, "source_quote": "<exact text you read it from>"}}}.\n'
-        "confidence reflects how certain you are you read the correct value "
-        "from the correct field.\n\n" + _doc_payload(doc),
-        image_b64=doc.image_b64,
-    )
-    return _parse_fields(raw, doc.doc_id), raw
+        "You extract financial facts from investor documents. Reply with JSON only. "
+        "Never guess: if the documents do not state a value, omit the field entirely.",
+        f"Extract any of these fields that the documents state: {TARGET_FIELDS}.\n"
+        "income_year_1 is the MOST RECENT completed year; income_year_2 is the year "
+        "before it. Report each year separately — never average them.\n"
+        'Reply {"fields": {"<name>": {"value": <number|string>, "confidence": '
+        '<0.0-1.0>, "source_quote": "<exact text>", "doc_id": "<which document>"}}}.\n'
+        "confidence reflects certainty you read the correct value from the correct "
+        "field.\n\n" + _payload(docs),
+        image_b64=_first_image(docs))
+    return _parse_fields(raw)
 
 
-def round2_challenge(doc: Document, fields: dict[str, Field]) -> list[Challenge]:
+def round2_challenge(docs: list[Document], fields: dict[str, Field]) -> list[Challenge]:
     summary = {k: {"value": v.value, "confidence": v.confidence,
-                   "source_quote": v.source_quote} for k, v in fields.items()}
+                   "source_quote": v.source_quote, "doc_id": v.doc_id}
+               for k, v in fields.items()}
     raw = complete_json(
         CHALLENGER_MODEL,
-        "You are an adversarial reviewer auditing another model's extraction of a "
-        "financial document for an SEC accredited-investor determination. Your job is "
-        "to find errors, not to agree. Reply with JSON only.",
-        f"Another model extracted these fields: {summary}\n\n"
-        f"Check specifically for these failure modes: {FAILURE_MODES}\n\n"
-        "Raise a challenge ONLY where you have a specific, stateable reason tied to "
-        "the document text. Do not raise vague doubts. If the extraction is sound, "
-        'return an empty list.\nReply {"challenges": [{"field_name": "...", '
+        "You are an adversarial reviewer auditing another model's extraction from "
+        "investor documents, for an SEC accredited-investor determination. Your job "
+        "is to find errors, not to agree. Reply with JSON only.",
+        f"Another model extracted: {summary}\n\n"
+        f"Check specifically for these failure modes: {failure_modes()}\n\n"
+        "You can see ALL the documents, so check them against each other: do employer "
+        "names, tax years, institutions and totals agree? Do stated totals reconcile "
+        "with their components? Are any dates impossible?\n\n"
+        "Raise a challenge ONLY where you have a specific reason you can state and "
+        "tie to the document text. Do not raise vague doubts. If the extraction is "
+        'sound, return an empty list.\nReply {"challenges": [{"field_name": "...", '
         '"failure_mode": "<one of the list>", "reason": "<specific>"}]}.\n\n'
-        + _doc_payload(doc),
-        image_b64=doc.image_b64,
-    )
+        + _payload(docs),
+        image_b64=_first_image(docs))
     return [Challenge(**c) for c in (raw.get("challenges") or [])
             if isinstance(c, dict) and c.get("field_name")]
 
 
-def round3_respond(doc: Document, fields: dict[str, Field],
+def round3_respond(docs: list[Document], fields: dict[str, Field],
                    challenges: list[Challenge]) -> list[Resolution]:
-    if not challenges:
-        return []
     raw = complete_json(
         EXTRACTOR_MODEL,
         "You are defending your extraction against an auditor. Concede when the "
         "auditor is right. Reply with JSON only.",
         f"Your extraction: { {k: v.value for k, v in fields.items()} }\n"
         f"Challenges: {[c.model_dump() for c in challenges]}\n\n"
-        'For each challenge reply {"resolutions": [{"field_name": "...", '
-        '"action": "CONCEDE" or "DEFEND", "revised_value": <value|null>, '
-        '"justification": "..."}]}. CONCEDE requires a revised_value.\n\n'
-        + _doc_payload(doc),
-        image_b64=doc.image_b64,
-    )
+        'For each challenge reply {"resolutions": [{"field_name": "...", "action": '
+        '"CONCEDE" or "DEFEND", "revised_value": <value|null>, "justification": '
+        '"..."}]}. CONCEDE requires a revised_value.\n\n' + _payload(docs),
+        image_b64=_first_image(docs))
     out = []
     for r in (raw.get("resolutions") or []):
         if isinstance(r, dict) and r.get("action") in ("CONCEDE", "DEFEND"):
-            out.append(Resolution(
-                field_name=r.get("field_name", ""),
-                action=r["action"],
-                revised_value=r.get("revised_value"),
-                justification=str(r.get("justification", "")),
-            ))
+            out.append(Resolution(field_name=r.get("field_name", ""),
+                                  action=r["action"],
+                                  revised_value=r.get("revised_value"),
+                                  justification=str(r.get("justification", ""))))
     return out
 
 
-def round4_adjudicate(doc: Document, fields: dict[str, Field],
-                      challenges: list[Challenge],
-                      resolutions: list[Resolution]
+def round4_adjudicate(docs: list[Document], fields: dict[str, Field],
+                      challenges: list[Challenge], resolutions: list[Resolution]
                       ) -> tuple[dict[str, Field], AgentRecommendation]:
     raw = complete_json(
         ADJUDICATOR_MODEL,
-        "You adjudicate a dispute between an extractor and an auditor over a financial "
-        "document, for an SEC accredited-investor determination. Reply with JSON only. "
-        "You decide the final field values and whether the document is trustworthy. "
-        "You do NOT apply dollar thresholds — a separate deterministic validator does that.",
+        "You adjudicate a dispute between an extractor and an auditor over investor "
+        "documents, for an SEC accredited-investor determination. Reply with JSON "
+        "only. You decide the final field values and whether the documents are "
+        "trustworthy. You do NOT apply dollar thresholds — a separate deterministic "
+        "validator does that.",
         f"Extraction: { {k: v.model_dump() for k, v in fields.items()} }\n"
         f"Challenges: {[c.model_dump() for c in challenges]}\n"
         f"Responses: {[r.model_dump() for r in resolutions]}\n\n"
         'Reply {"fields": {...same shape as extraction...}, "recommendation": '
         '{"decision": "APPROVE"|"DENY"|"INSUFFICIENT", "trust_assessment": "...", '
         '"reasoning": "...", "open_disputes": ["field_name", ...]}}.\n'
-        "APPROVE means the documents credibly support the claim. List any challenge "
-        "you could not resolve in open_disputes.\n\n" + _doc_payload(doc),
-        image_b64=doc.image_b64,
-    )
-    final = _parse_fields(raw, doc.doc_id) or fields
+        "APPROVE means the documents credibly support the investor's claim. List any "
+        "challenge you could not resolve in open_disputes.\n\n" + _payload(docs),
+        image_b64=_first_image(docs))
+    final = _parse_fields(raw) or fields
     rec_raw = raw.get("recommendation") or {}
     rec = AgentRecommendation(
         decision=rec_raw.get("decision", "INSUFFICIENT"),
         trust_assessment=str(rec_raw.get("trust_assessment", "")),
         reasoning=str(rec_raw.get("reasoning", "")),
-        open_disputes=[str(d) for d in (rec_raw.get("open_disputes") or [])],
-    )
+        open_disputes=[str(d) for d in (rec_raw.get("open_disputes") or [])])
     if rec.decision not in ("APPROVE", "DENY", "INSUFFICIENT"):
         rec.decision = "INSUFFICIENT"
     return final, rec
 
 
-def run_debate(doc: Document) -> DebateResult:
+def run_debate(docs: list[Document]) -> DebateResult:
     res = DebateResult()
+    doc_ids = [d.doc_id for d in docs]
 
-    with span("debate.round1.extract", doc_id=doc.doc_id) as s:
-        fields, _ = round1_extract(doc)
+    with span("debate.round1.extract", doc_count=len(docs)) as s:
+        fields = round1_extract(docs)
         s.set(field_count=len(fields),
               min_confidence=min([f.confidence for f in fields.values()], default=0.0))
     res.turns.append(DebateTurn(round=1, actor="extractor",
                                 model=EXTRACTOR_MODEL, fields=fields))
 
-    with span("debate.round2.challenge", doc_id=doc.doc_id) as s:
-        challenges = round2_challenge(doc, fields)
+    with span("debate.round2.challenge", doc_count=len(docs)) as s:
+        challenges = round2_challenge(docs, fields)
         s.set(challenge_count=len(challenges),
               fields_challenged=[c.field_name for c in challenges])
     res.turns.append(DebateTurn(round=2, actor="challenger",
                                 model=CHALLENGER_MODEL, challenges=challenges))
 
-    with span("debate.round3.respond", doc_id=doc.doc_id) as s:
-        resolutions = round3_respond(doc, fields, challenges)
-        s.set(conceded=sum(r.action == "CONCEDE" for r in resolutions),
-              defended=sum(r.action == "DEFEND" for r in resolutions))
-    res.turns.append(DebateTurn(round=3, actor="adjudicator",
-                                model=EXTRACTOR_MODEL, resolutions=resolutions))
+    resolutions: list[Resolution] = []
+    if challenges:
+        with span("debate.round3.respond") as s:
+            resolutions = round3_respond(docs, fields, challenges)
+            s.set(conceded=sum(r.action == "CONCEDE" for r in resolutions),
+                  defended=sum(r.action == "DEFEND" for r in resolutions))
+        res.turns.append(DebateTurn(round=3, actor="extractor",
+                                    model=EXTRACTOR_MODEL, resolutions=resolutions))
+        for r in resolutions:
+            if (r.action == "CONCEDE" and r.field_name in fields
+                    and r.revised_value is not None):
+                fields[r.field_name].value = r.revised_value
 
-    for r in resolutions:
-        if r.action == "CONCEDE" and r.field_name in fields and r.revised_value is not None:
-            fields[r.field_name].value = r.revised_value
-
-    with span("debate.round4.adjudicate", doc_id=doc.doc_id) as s:
-        final, rec = round4_adjudicate(doc, fields, challenges, resolutions)
+    with span("debate.round4.adjudicate") as s:
+        final, rec = round4_adjudicate(docs, fields, challenges, resolutions)
         s.set(recommendation=rec.decision, disputes_open=len(rec.open_disputes))
     res.turns.append(DebateTurn(round=4, actor="adjudicator",
                                 model=ADJUDICATOR_MODEL, fields=final))
@@ -802,63 +984,71 @@ def run_debate(doc: Document) -> DebateResult:
     for name, f in final.items():
         if name in challenged:
             f.disputed = True
+        if not f.doc_id and doc_ids:
+            f.doc_id = doc_ids[0]
 
-    res.fields = final
-    res.recommendation = rec
+    res.fields, res.recommendation = final, rec
     return res
 ```
 
+Note the round numbering: when there are no challenges, round 3 is skipped and the adjudicator still reports as round 4. The test `test_round3_is_skipped_when_there_are_no_challenges` pins that behavior.
+
 - [ ] **Step 4: Run tests**
 
-Run: `pytest tests/test_debate.py -v`
-Expected: 4 passed
+Run: `pytest tests/test_debate.py -v` → 8 passed
 
-- [ ] **Step 5: Run one real debate end to end**
+- [ ] **Step 5: Run one real debate against the case 5 fixture and TIME it**
 
 ```bash
 python -c "
+import time, pathlib
 from app.models import Document
 from app.debate import run_debate
-d = Document(doc_id='d1', filename='w2.txt', doc_type='w2',
-             text='Form W-2 2025. Employer: Acme Corp. Box 1 Wages: \$214,500.00')
-r = run_debate(d)
-print('turns', len(r.turns)); print('fields', {k: v.value for k,v in r.fields.items()})
-print('rec', r.recommendation.decision, '|', r.recommendation.reasoning[:120])
+docs = [Document(doc_id=f'd{i}', filename=p.name, doc_type='w2' if 'w2' in p.name else '1040',
+                 text=p.read_text())
+        for i, p in enumerate(sorted(pathlib.Path('fixtures/docs').glob('case5_*')))]
+t = time.time(); r = run_debate(docs); el = time.time() - t
+print(f'{el:.1f}s, {len(r.turns)} turns')
+print({k: v.value for k, v in r.fields.items()})
+print(r.recommendation.decision, '|', r.recommendation.reasoning[:160])
 "
 ```
-Expected: 4 turns, `wages` ≈ 214500, a recommendation. **Time it** — if a debate exceeds ~25s, cache fixture debates (Task 13) rather than running live on stage.
+Expected: 3–4 turns and ideally `APPROVE` (the agents averaging the two years is exactly the behavior case 5 exploits). **If this exceeds ~25s, plan on playing the demo from cache** with one short live run as the honesty beat — decide that now, not at hour five.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add app/debate.py tests/test_debate.py
-git commit -m "feat: 4-round cross-vendor adversarial debate loop"
+git commit -m "feat: cross-vendor adversarial debate over the full document set"
 ```
 
 ---
 
-## Task 7: Deterministic validator (TDD, strict)
+## Task 8: Deterministic validator (TDD, strict)
 
-**Time box: 30 min.** Pure functions; demo case 5 depends on exact behavior here. Test first, no exceptions.
+**Time box: 35 min.** Pure functions; demo case 5 lands here. Test first, no exceptions.
 
 **Files:**
-- Create: `app/validator.py`
-- Create: `tests/test_validator.py`
+- Create: `app/validator.py`, `tests/test_validator.py`
 
 **Interfaces:**
-- Consumes: `app.models.{Case, Field, RuleResult}`
-- Produces: `INDIVIDUAL_INCOME`, `JOINT_INCOME`, `NET_WORTH_MIN`, `ENTITY_ASSETS_MIN`, `validate(case: Case) -> list[RuleResult]`
+- Consumes: `app.models.{Case, Field, RuleResult, Attestations}`
+- Produces: `INDIVIDUAL_INCOME`, `JOINT_INCOME`, `NET_WORTH_MIN`, `ENTITY_ASSETS_MIN`, `validate(case) -> list[RuleResult]`
 
 - [ ] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_validator.py
-from app.models import Case, Field
+from app.models import Case, Field, Attestations
 from app.validator import validate
 
 
-def _case(path="income", subject="individual", **fields):
+def _case(path="income", subject="individual", attest=None, **fields):
     return Case(case_id="c1", subject_type=subject, claimed_path=path,
+                attestations=attest or Attestations(
+                    current_year_income_expectation=True,
+                    liabilities_complete=True,
+                    funds_not_third_party_financed=True),
                 extracted={k: Field(value=v, confidence=0.95)
                            for k, v in fields.items()})
 
@@ -868,31 +1058,43 @@ def _rule(results, rule_id):
 
 
 def test_income_passes_when_both_years_above_threshold():
-    r = _rule(validate(_case(income_year_1=214500, income_year_2=230000,
-                             income_current_year_expectation=220000)), "INCOME")
+    r = _rule(validate(_case(income_year_1=240000, income_year_2=230000,
+                             income_current_year_expectation=240000)), "INCOME")
     assert r.outcome == "PASS"
 
 
-def test_income_fails_at_199400_the_demo_case():
-    """Demo case 5: agents may recommend APPROVE; this must still FAIL."""
-    r = _rule(validate(_case(income_year_1=199400, income_year_2=230000,
-                             income_current_year_expectation=220000)), "INCOME")
+def test_income_fails_when_the_earlier_year_is_below_threshold():
+    """Demo case 5: agents approve by averaging; this must FAIL on 'each year'."""
+    r = _rule(validate(_case(income_year_1=240000, income_year_2=185000,
+                             income_current_year_expectation=240000)), "INCOME")
     assert r.outcome == "FAIL"
-    assert "199400" in str(r.inputs_used) or 199400 in r.inputs_used.values()
+    assert 185000 in r.inputs_used.values()
+    assert "each" in r.reason.lower()
 
 
-def test_income_requires_both_years_not_just_average():
-    r = _rule(validate(_case(income_year_1=150000, income_year_2=300000,
+def test_income_ignores_a_qualifying_two_year_average():
+    r = _rule(validate(_case(income_year_1=300000, income_year_2=150000,
                              income_current_year_expectation=300000)), "INCOME")
     assert r.outcome == "FAIL"
 
 
-def test_income_insufficient_data_when_a_year_is_missing():
-    r = _rule(validate(_case(income_year_1=214500)), "INCOME")
+def test_income_insufficient_when_a_year_is_missing():
+    r = _rule(validate(_case(income_year_1=240000)), "INCOME")
     assert r.outcome == "INSUFFICIENT_DATA"
 
 
-def test_joint_filing_uses_300k_threshold():
+def test_income_requires_the_current_year_attestation():
+    """506(c)'s income safe harbor needs a written representation of current-year
+    expectation — no document contains it, so it must be collected at intake."""
+    r = _rule(validate(_case(income_year_1=240000, income_year_2=230000,
+                             income_current_year_expectation=240000,
+                             attest=Attestations(current_year_income_expectation=False))),
+              "INCOME")
+    assert r.outcome == "INSUFFICIENT_DATA"
+    assert "representation" in r.reason.lower()
+
+
+def test_joint_filing_uses_the_300k_threshold():
     r = _rule(validate(_case(income_year_1=250000, income_year_2=260000,
                              income_current_year_expectation=250000,
                              filing_status="joint")), "INCOME")
@@ -904,8 +1106,7 @@ def test_net_worth_excludes_primary_residence():
                              total_liabilities=200_000,
                              primary_residence_value=800_000,
                              primary_residence_debt=300_000)), "NET_WORTH")
-    # (1.6M - 0.8M residence) - (0.2M - 0.3M residence debt) = 0.9M
-    assert r.outcome == "FAIL"
+    assert r.outcome == "FAIL"   # (1.6-0.8) - (0.2-0.3) = 0.9M
 
 
 def test_net_worth_passes_above_one_million_excluding_residence():
@@ -914,6 +1115,14 @@ def test_net_worth_passes_above_one_million_excluding_residence():
                              primary_residence_value=900_000,
                              primary_residence_debt=600_000)), "NET_WORTH")
     assert r.outcome == "PASS"
+
+
+def test_net_worth_requires_the_liabilities_attestation():
+    r = _rule(validate(_case(path="net_worth", total_assets=3_000_000,
+                             total_liabilities=400_000,
+                             attest=Attestations(liabilities_complete=False))),
+              "NET_WORTH")
+    assert r.outcome == "INSUFFICIENT_DATA"
 
 
 def test_license_reads_solari_evidence():
@@ -928,16 +1137,25 @@ def test_license_fails_when_inactive():
     assert _rule(validate(c), "LICENSE").outcome == "FAIL"
 
 
-def test_min_investment_shortcut_requires_self_certification():
-    c = _case(path="min_investment")
+def test_min_investment_requires_the_financing_self_certification():
+    c = _case(path="min_investment",
+              attest=Attestations(funds_not_third_party_financed=False))
     c.commitment_usd = 250_000
-    c.evidence["self_certified_not_financed"] = False
-    assert _rule(validate(c), "MIN_INVESTMENT").outcome == "FAIL"
+    r = _rule(validate(c), "MIN_INVESTMENT")
+    assert r.outcome == "FAIL"
+    assert "self-certif" in r.reason.lower()
 
 
-def test_every_rule_result_carries_a_citation():
-    for r in validate(_case(income_year_1=214500, income_year_2=230000,
-                            income_current_year_expectation=220000)):
+def test_shell_company_risk_runs_for_entities_only():
+    individual = validate(_case())
+    assert not any(r.rule_id == "SHELL_COMPANY_RISK" for r in individual)
+    entity = _case(path="entity_assets", subject="entity", entity_total_assets=9_000_000)
+    assert any(r.rule_id == "SHELL_COMPANY_RISK" for r in validate(entity))
+
+
+def test_every_rule_result_carries_a_citation_and_a_reason():
+    for r in validate(_case(income_year_1=240000, income_year_2=230000,
+                            income_current_year_expectation=240000)):
         assert r.citation, f"{r.rule_id} has no citation"
         assert r.reason
 ```
@@ -967,8 +1185,13 @@ CITATIONS = {
     "LICENSE": "17 CFR 230.501(a)(10)",
     "ENTITY_ASSETS": "17 CFR 230.501(a)(3) / (a)(9)",
     "MIN_INVESTMENT": "SEC no-action letter, March 2025",
-    "SHELL_COMPANY_RISK": "internal risk check (not a 501(a) test)",
+    "SHELL_COMPANY_RISK": "internal risk check — NOT a 501(a) test",
 }
+
+# SHELL_COMPANY_RISK is excluded from every accreditation outcome. Its PASS/FAIL
+# describe corroboration quality only, and triage filters it out before deciding
+# approval or rejection. It can route a case to human review, nothing else.
+RISK_ONLY_RULES = {"SHELL_COMPANY_RISK"}
 
 
 def _num(case: Case, name: str) -> float | None:
@@ -992,30 +1215,36 @@ def check_income(case: Case) -> RuleResult:
     status_f = case.extracted.get("filing_status")
     joint = str(getattr(status_f, "value", "")).lower() == "joint"
     threshold = JOINT_INCOME if joint else INDIVIDUAL_INCOME
+    attested = case.attestations.current_year_income_expectation
     inputs = {"income_year_1": y1, "income_year_2": y2,
               "income_current_year_expectation": expectation,
               "filing_status": "joint" if joint else "individual",
+              "current_year_expectation_attested": attested,
               "threshold": threshold}
 
     if y1 is None or y2 is None:
-        missing = [n for n, v in (("income_year_1", y1), ("income_year_2", y2)) if v is None]
+        missing = [n for n, v in (("income_year_1", y1), ("income_year_2", y2))
+                   if v is None]
         return _result("INCOME", "INSUFFICIENT_DATA",
-                       f"Missing required prior-year income: {', '.join(missing)}", inputs)
-    if expectation is None:
+                       f"Missing required prior-year income: {', '.join(missing)}.",
+                       inputs)
+    if not attested:
         return _result("INCOME", "INSUFFICIENT_DATA",
-                       "Missing a reasonable expectation of current-year income, which "
-                       "501(a)(6) requires in addition to the two prior years.", inputs)
+                       "Missing the investor's written representation of a reasonable "
+                       "expectation of reaching the threshold in the current year, "
+                       "which 501(a)(6) requires in addition to the two prior years.",
+                       inputs)
 
-    failed = [n for n, v in (("income_year_1", y1), ("income_year_2", y2),
-                             ("income_current_year_expectation", expectation)) if v < threshold]
+    failed = [f"{n}=${v:,.0f}" for n, v in (("income_year_1", y1), ("income_year_2", y2))
+              if v < threshold]
     if failed:
         return _result("INCOME", "FAIL",
-                       f"501(a)(6) requires income of at least ${threshold:,} in EACH of "
-                       f"the two most recent years plus a reasonable expectation for the "
-                       f"current year. Below threshold: {', '.join(failed)}.", inputs)
+                       f"501(a)(6) requires income of at least ${threshold:,} in EACH "
+                       f"of the two most recent years — a two-year average does not "
+                       f"qualify. Below threshold: {', '.join(failed)}.", inputs)
     return _result("INCOME", "PASS",
                    f"Income of at least ${threshold:,} in each of the two most recent "
-                   f"years and expected for the current year.", inputs)
+                   f"years, with an attested expectation for the current year.", inputs)
 
 
 def check_net_worth(case: Case) -> RuleResult:
@@ -1023,24 +1252,31 @@ def check_net_worth(case: Case) -> RuleResult:
     res_val = _num(case, "primary_residence_value") or 0.0
     res_debt = _num(case, "primary_residence_debt") or 0.0
     recent_debt = _num(case, "residence_debt_added_last_60_days") or 0.0
+    attested = case.attestations.liabilities_complete
     inputs = {"total_assets": assets, "total_liabilities": liabilities,
               "primary_residence_value": res_val, "primary_residence_debt": res_debt,
               "residence_debt_added_last_60_days": recent_debt,
-              "threshold": NET_WORTH_MIN}
+              "liabilities_attested_complete": attested, "threshold": NET_WORTH_MIN}
 
     if assets is None or liabilities is None:
         return _result("NET_WORTH", "INSUFFICIENT_DATA",
                        "Missing total assets or total liabilities.", inputs)
+    if not attested:
+        return _result("NET_WORTH", "INSUFFICIENT_DATA",
+                       "Missing the investor's written representation that all "
+                       "liabilities have been disclosed. Without a consumer credit "
+                       "report (out of scope), the net worth method cannot rely on "
+                       "documents alone.", inputs)
 
     net = (assets - res_val) - (liabilities - res_debt) - recent_debt
     inputs["computed_net_worth_excluding_residence"] = net
     if net > NET_WORTH_MIN:
         return _result("NET_WORTH", "PASS",
-                       f"Net worth excluding primary residence is ${net:,.0f}, above the "
-                       f"${NET_WORTH_MIN:,} threshold.", inputs)
+                       f"Net worth excluding primary residence is ${net:,.0f}, above "
+                       f"the ${NET_WORTH_MIN:,} threshold.", inputs)
     return _result("NET_WORTH", "FAIL",
-                   f"Net worth excluding primary residence is ${net:,.0f}, at or below the "
-                   f"${NET_WORTH_MIN:,} threshold.", inputs)
+                   f"Net worth excluding primary residence is ${net:,.0f}, at or below "
+                   f"the ${NET_WORTH_MIN:,} threshold.", inputs)
 
 
 def check_license(case: Case) -> RuleResult:
@@ -1053,10 +1289,12 @@ def check_license(case: Case) -> RuleResult:
     held = [l for l in (ev.get("licenses") or []) if l in qualifying]
     if held and ev.get("active"):
         return _result("LICENSE", "PASS",
-                       f"Holds {', '.join(held)} in good standing per FINRA BrokerCheck "
-                       f"({ev.get('source_url', 'source unrecorded')}).", inputs)
+                       f"Holds {', '.join(held)} in good standing per FINRA "
+                       f"BrokerCheck ({ev.get('source_url') or 'source unrecorded'}).",
+                       inputs)
     return _result("LICENSE", "FAIL",
-                   "No active Series 7, 65, or 82 registration found on BrokerCheck.", inputs)
+                   "No active Series 7, 65, or 82 registration found on BrokerCheck.",
+                   inputs)
 
 
 def check_entity_assets(case: Case) -> RuleResult:
@@ -1070,60 +1308,60 @@ def check_entity_assets(case: Case) -> RuleResult:
     best = max(v for v in (assets, investments) if v is not None)
     if best > ENTITY_ASSETS_MIN:
         return _result("ENTITY_ASSETS", "PASS",
-                       f"Entity holds ${best:,.0f}, above the ${ENTITY_ASSETS_MIN:,} "
-                       f"threshold.", inputs)
+                       f"Entity holds ${best:,.0f}, above the "
+                       f"${ENTITY_ASSETS_MIN:,} threshold.", inputs)
     return _result("ENTITY_ASSETS", "FAIL",
-                   f"Entity holds ${best:,.0f}, at or below the ${ENTITY_ASSETS_MIN:,} "
-                   f"threshold.", inputs)
+                   f"Entity holds ${best:,.0f}, at or below the "
+                   f"${ENTITY_ASSETS_MIN:,} threshold.", inputs)
 
 
 def check_min_investment(case: Case) -> RuleResult:
     commitment = case.commitment_usd
-    certified = bool(case.evidence.get("self_certified_not_financed"))
+    certified = case.attestations.funds_not_third_party_financed
     threshold = (MIN_INVEST_ENTITY if case.subject_type == "entity"
                  else MIN_INVEST_INDIVIDUAL)
     inputs = {"commitment_usd": commitment, "threshold": threshold,
-              "self_certified_not_financed": certified}
+              "funds_not_third_party_financed": certified}
     if commitment is None:
         return _result("MIN_INVESTMENT", "INSUFFICIENT_DATA",
                        "No commitment amount recorded.", inputs)
     if commitment >= threshold and certified:
         return _result("MIN_INVESTMENT", "PASS",
-                       f"Commitment of ${commitment:,} meets the ${threshold:,} minimum "
-                       f"and the investor certified the funds are not third-party "
-                       f"financed.", inputs)
+                       f"Commitment of ${commitment:,} meets the ${threshold:,} "
+                       f"minimum and the investor self-certified that the funds are "
+                       f"not third-party financed.", inputs)
     if commitment >= threshold:
         return _result("MIN_INVESTMENT", "FAIL",
                        "Commitment meets the minimum but the required written "
-                       "self-certification that funds are not third-party financed is "
-                       "missing.", inputs)
+                       "self-certification that funds are not third-party financed "
+                       "is missing.", inputs)
     return _result("MIN_INVESTMENT", "FAIL",
-                   f"Commitment of ${commitment:,} is below the ${threshold:,} minimum.",
-                   inputs)
+                   f"Commitment of ${commitment:,} is below the ${threshold:,} "
+                   f"minimum.", inputs)
 
 
 def check_shell_company_risk(case: Case) -> RuleResult:
     ev = case.evidence.get("entity_corroboration")
     inputs = {"entity_corroboration": ev}
+    note = (" Corroboration signal only — akta.pro holds no individual-level or AUM "
+            "data and cannot establish accredited status.")
     if not ev:
         return _result("SHELL_COMPANY_RISK", "INSUFFICIENT_DATA",
-                       "No company corroboration data retrieved.", inputs)
+                       "No company corroboration data retrieved." + note, inputs)
     if not ev.get("resolved"):
         return _result("SHELL_COMPANY_RISK", "FAIL",
-                       "Entity could not be resolved to a known company. Manual review "
-                       "required. This is a risk signal, not an accreditation test.", inputs)
+                       "Entity could not be resolved to a known company." + note, inputs)
     if not ev.get("operating_business_signal"):
         return _result("SHELL_COMPANY_RISK", "FAIL",
                        "Entity resolved but shows no operating-business signals "
-                       "(headcount, hiring, web traffic). Risk signal only.", inputs)
+                       "(headcount, hiring, web traffic)." + note, inputs)
     if ev.get("adverse_news"):
         return _result("SHELL_COMPANY_RISK", "FAIL",
-                       f"{len(ev['adverse_news'])} adverse news item(s) found. Risk "
-                       f"signal only.", inputs)
+                       f"{len(ev['adverse_news'])} adverse news item(s) found." + note,
+                       inputs)
     return _result("SHELL_COMPANY_RISK", "PASS",
-                   "Entity resolves to a company with operating signals and no adverse "
-                   "news. Corroboration only, not a verification of accredited status.",
-                   inputs)
+                   "Entity resolves to a company with operating signals and no "
+                   "adverse news." + note, inputs)
 
 
 PATH_RULES = {
@@ -1147,66 +1385,72 @@ def validate(case: Case) -> list[RuleResult]:
 
 - [ ] **Step 4: Run tests until green**
 
-Run: `pytest tests/test_validator.py -v`
-Expected: 11 passed
+Run: `pytest tests/test_validator.py -v` → 14 passed
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add app/validator.py tests/test_validator.py
-git commit -m "feat: deterministic Rule 501(a) validator with citations"
+git commit -m "feat: deterministic Rule 501(a) validator with attestations and citations"
 ```
 
 ---
 
-## Task 8: Triage and conflict detection (TDD, strict)
+## Task 9: Triage, conflict detection, and the PRISM guardrail (TDD, strict)
 
-**Time box: 25 min.** This is where demo case 5 actually lands.
+**Time box: 35 min.** Demo case 5 lands here. The PRISM guardrail is **promoted into this task** — it is the same logic the conflict check already writes, and it dramatizes case 5 directly, so deferring it to "if time remains" forfeited the PRISM track for no saving.
 
 **Files:**
-- Create: `app/triage.py`
-- Create: `tests/test_triage.py`
+- Create: `app/triage.py`, `tests/test_triage.py`
 
 **Interfaces:**
-- Consumes: `app.models.{Case, RuleResult, AgentRecommendation, Field}`
-- Produces: `CONFIDENCE_THRESHOLD = 0.85`, `NEAR_THRESHOLD_PCT = 0.05`, `detect_conflict(case) -> bool`, `triage(case) -> tuple[str, str]`
+- Produces: `CONFIDENCE_THRESHOLD = 0.85`, `NEAR_THRESHOLD_PCT = 0.05`, `detect_conflict(case) -> bool`, `triage(case) -> tuple[str, str]`, `assert_issue_guardrail(case) -> None`
 
 - [ ] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_triage.py
+import pytest
 from app.models import Case, Field, RuleResult, AgentRecommendation
-from app.triage import triage, detect_conflict
+from app.triage import triage, detect_conflict, assert_issue_guardrail
 
 
-def _case(rec_decision, rule_outcome, confidence=0.95, inputs=None, disputes=None):
+def _case(rec_decision, rule_outcome, confidence=0.95, inputs=None, disputes=None,
+          rule_id="INCOME", subject="individual", path="income"):
     return Case(
-        case_id="c1", subject_type="individual", claimed_path="income",
-        extracted={"income_year_1": Field(value=214500, confidence=confidence)},
+        case_id="c1", subject_type=subject, claimed_path=path,
+        extracted={"income_year_1": Field(value=240000, confidence=confidence)},
         recommendation=AgentRecommendation(
             decision=rec_decision, trust_assessment="", reasoning="",
             open_disputes=disputes or []),
-        validation=[RuleResult(rule_id="INCOME", citation="17 CFR 230.501(a)(6)",
+        validation=[RuleResult(rule_id=rule_id, citation="17 CFR 230.501(a)(6)",
                                outcome=rule_outcome,
-                               inputs_used=inputs or {"income_year_1": 214500,
+                               inputs_used=inputs or {"income_year_1": 240000,
                                                       "threshold": 200000},
-                               reason="")],
-    )
+                               reason="stub reason")])
 
 
 def test_auto_approves_when_agents_and_validator_agree():
-    decision, _ = triage(_case("APPROVE", "PASS"))
-    assert decision == "auto_approved"
+    assert triage(_case("APPROVE", "PASS"))[0] == "auto_approved"
 
 
 def test_conflict_when_agents_approve_but_validator_fails():
     """Demo case 5 — the showpiece."""
-    case = _case("APPROVE", "FAIL", inputs={"income_year_1": 199400,
+    case = _case("APPROVE", "FAIL", inputs={"income_year_2": 185000,
                                             "threshold": 200000})
     assert detect_conflict(case) is True
     decision, reason = triage(case)
     assert decision == "needs_review"
-    assert "199" in reason or "conflict" in reason.lower()
+    assert "conflict" in reason.lower()
+
+
+def test_case5_values_are_outside_the_near_threshold_band():
+    """185000 is 7.5% below 200000, so the conflict branch fires rather than being
+    masked by the near-threshold rule. This is why the fixture uses 185000."""
+    case = _case("APPROVE", "FAIL", inputs={"income_year_2": 185000,
+                                            "threshold": 200000})
+    _, reason = triage(case)
+    assert "within" not in reason.lower()
 
 
 def test_low_confidence_blocks_auto_approval():
@@ -1216,9 +1460,9 @@ def test_low_confidence_blocks_auto_approval():
 
 
 def test_near_threshold_value_blocks_auto_approval():
-    case = _case("APPROVE", "PASS", inputs={"income_year_1": 205000,
-                                            "threshold": 200000})
-    decision, reason = triage(case)
+    decision, reason = triage(_case("APPROVE", "PASS",
+                                    inputs={"income_year_1": 205000,
+                                            "threshold": 200000}))
     assert decision == "needs_review"
     assert "threshold" in reason.lower()
 
@@ -1230,18 +1474,42 @@ def test_open_dispute_blocks_auto_approval():
 
 
 def test_rejects_when_both_layers_say_no():
-    decision, _ = triage(_case("DENY", "FAIL"))
-    assert decision == "rejected"
+    assert triage(_case("DENY", "FAIL"))[0] == "rejected"
+
+
+def test_entity_case_can_still_be_rejected():
+    """SHELL_COMPANY_RISK is filtered out of the accreditation outcome, so its
+    presence must not make REJECTED unreachable for entities."""
+    case = _case("DENY", "FAIL", rule_id="ENTITY_ASSETS", subject="entity",
+                 path="entity_assets", inputs={"entity_total_assets": 1_000_000,
+                                               "threshold": 5_000_000})
+    case.validation.append(RuleResult(
+        rule_id="SHELL_COMPANY_RISK", citation="internal risk check — NOT a 501(a) test",
+        outcome="PASS", inputs_used={}, reason="corroborated"))
+    assert triage(case)[0] == "rejected"
 
 
 def test_needs_documents_when_data_is_insufficient():
-    decision, _ = triage(_case("INSUFFICIENT", "INSUFFICIENT_DATA"))
-    assert decision == "needs_documents"
+    assert triage(_case("INSUFFICIENT", "INSUFFICIENT_DATA"))[0] == "needs_documents"
 
 
 def test_validator_pass_alone_cannot_auto_approve():
-    decision, _ = triage(_case("DENY", "PASS"))
-    assert decision == "needs_review"
+    assert triage(_case("DENY", "PASS"))[0] == "needs_review"
+
+
+def test_guardrail_rejects_issuing_a_conflicted_case():
+    case = _case("APPROVE", "FAIL", inputs={"income_year_2": 185000,
+                                            "threshold": 200000})
+    case.conflict = True
+    case.decision = "auto_approved"          # the bug the guardrail exists to catch
+    with pytest.raises(AssertionError):
+        assert_issue_guardrail(case)
+
+
+def test_guardrail_allows_a_clean_case():
+    case = _case("APPROVE", "PASS")
+    case.decision = "auto_approved"
+    assert_issue_guardrail(case) is None
 ```
 
 - [ ] **Step 2: Run them and watch them fail**
@@ -1253,10 +1521,16 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'app.triage'`
 
 ```python
 from app.models import Case
+from app.validator import RISK_ONLY_RULES
 from app.tracing import span
 
 CONFIDENCE_THRESHOLD = 0.85
 NEAR_THRESHOLD_PCT = 0.05
+
+
+def _accreditation_rules(case: Case):
+    """Risk-only rules never decide approval or rejection."""
+    return [r for r in case.validation if r.rule_id not in RISK_ONLY_RULES]
 
 
 def detect_conflict(case: Case) -> bool:
@@ -1264,10 +1538,9 @@ def detect_conflict(case: Case) -> bool:
     disagreement always routes to a human."""
     if case.recommendation is None:
         return False
-    passed = any(r.outcome == "PASS" and r.rule_id != "SHELL_COMPANY_RISK"
-                 for r in case.validation)
-    failed = any(r.outcome == "FAIL" and r.rule_id != "SHELL_COMPANY_RISK"
-                 for r in case.validation)
+    rules = _accreditation_rules(case)
+    passed = any(r.outcome == "PASS" for r in rules)
+    failed = any(r.outcome == "FAIL" for r in rules)
     if case.recommendation.decision == "APPROVE" and failed and not passed:
         return True
     if case.recommendation.decision == "DENY" and passed:
@@ -1276,7 +1549,7 @@ def detect_conflict(case: Case) -> bool:
 
 
 def _near_threshold(case: Case) -> str | None:
-    for r in case.validation:
+    for r in _accreditation_rules(case):
         threshold = r.inputs_used.get("threshold")
         if not isinstance(threshold, (int, float)) or threshold == 0:
             continue
@@ -1292,37 +1565,36 @@ def _near_threshold(case: Case) -> str | None:
 
 def _low_confidence(case: Case) -> str | None:
     low = [n for n, f in case.extracted.items() if f.confidence < CONFIDENCE_THRESHOLD]
-    if low:
-        return (f"extraction confidence below {CONFIDENCE_THRESHOLD} for: "
-                f"{', '.join(low)}")
-    return None
+    return (f"extraction confidence below {CONFIDENCE_THRESHOLD} for: "
+            f"{', '.join(low)}") if low else None
 
 
 def triage(case: Case) -> tuple[str, str]:
     rec = case.recommendation
-    rules = [r for r in case.validation if r.rule_id != "SHELL_COMPANY_RISK"]
+    rules = _accreditation_rules(case)
     passed = any(r.outcome == "PASS" for r in rules)
-    all_insufficient = all(r.outcome == "INSUFFICIENT_DATA" for r in rules) if rules else True
+    all_insufficient = (all(r.outcome == "INSUFFICIENT_DATA" for r in rules)
+                        if rules else True)
 
     with span("stage:triage") as s:
         if detect_conflict(case):
             failing = next((r for r in rules if r.outcome == "FAIL"), None)
-            detail = failing.reason if failing else ""
             reason = (f"CONFLICT: agents recommended {rec.decision} but the "
-                      f"deterministic validator disagreed. {detail}")
+                      f"deterministic validator disagreed. "
+                      f"{failing.reason if failing else ''}")
             s.set(decision="needs_review", conflict=True, reason=reason)
             return "needs_review", reason
 
         if all_insufficient:
-            missing = "; ".join(r.reason for r in rules) or "no documents provided"
+            reason = "; ".join(r.reason for r in rules) or "no documents provided"
             s.set(decision="needs_documents", conflict=False)
-            return "needs_documents", missing
+            return "needs_documents", reason
 
         if rec is None or rec.decision != "APPROVE" or not passed:
             if rec is not None and rec.decision == "DENY" and not passed:
-                reason = "Both the agent review and the validator rejected the claim."
                 s.set(decision="rejected", conflict=False)
-                return "rejected", reason
+                return "rejected", ("Both the agent review and the deterministic "
+                                    "validator rejected the claim.")
             reason = ("Agent review did not recommend approval."
                       if rec is None or rec.decision != "APPROVE"
                       else "No statutory test passed.")
@@ -1339,82 +1611,98 @@ def triage(case: Case) -> tuple[str, str]:
             s.set(decision="needs_review", conflict=False, reason=reason)
             return "needs_review", reason
 
-        if any(r.outcome == "FAIL" and r.rule_id == "SHELL_COMPANY_RISK"
+        if any(r.outcome == "FAIL" and r.rule_id in RISK_ONLY_RULES
                for r in case.validation):
             reason = "entity corroboration raised a risk signal"
             s.set(decision="needs_review", conflict=False, reason=reason)
             return "needs_review", reason
 
-        passing = next(r for r in rules if r.outcome == "PASS")
-        reason = f"{passing.rule_id} satisfied under {passing.citation}. {passing.reason}"
+        winner = next(r for r in rules if r.outcome == "PASS")
+        reason = f"{winner.rule_id} satisfied under {winner.citation}. {winner.reason}"
         s.set(decision="auto_approved", conflict=False)
         return "auto_approved", reason
+
+
+def assert_issue_guardrail(case: Case) -> None:
+    """The compliance invariant, enforced in code and mirrored as a PRISM rule:
+    no case may be issued a letter while the agents and the validator disagree,
+    or without a passing statutory test above the confidence threshold."""
+    if case.decision != "auto_approved":
+        return
+    assert not case.conflict, (
+        f"guardrail: case {case.case_id} reached ISSUE with an unresolved "
+        f"agent/validator conflict")
+    rules = _accreditation_rules(case)
+    assert any(r.outcome == "PASS" for r in rules), (
+        f"guardrail: case {case.case_id} reached ISSUE with no passing statutory test")
+    assert all(f.confidence >= CONFIDENCE_THRESHOLD for f in case.extracted.values()), (
+        f"guardrail: case {case.case_id} reached ISSUE with a field below the "
+        f"{CONFIDENCE_THRESHOLD} confidence threshold")
 ```
 
 - [ ] **Step 4: Run tests until green**
 
-Run: `pytest tests/test_triage.py -v`
-Expected: 8 passed
+Run: `pytest tests/test_triage.py -v` → 12 passed
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Mirror the guardrail into PRISM via MCP (the bonus track)**
+
+Connect your editor to PRISM's MCP (Brief 2 of 2 → Generate management prompt), then add the same invariant as a PRISM rule: *no span named `stage:issue` may exist on a trace whose `stage:triage` span has `conflict=true`.* Then demonstrate it: run case 5 with `assert_issue_guardrail` removed from the pipeline (v1 violates), restore it (v2 does not), same inputs. That is the PRISM challenge's exact ask, satisfied by logic you already needed.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add app/triage.py tests/test_triage.py
-git commit -m "feat: triage routing with agent/validator conflict detection"
+git commit -m "feat: triage routing, agent/validator conflict detection, issue guardrail"
 ```
 
 ---
 
-## Task 9: Solari BrokerCheck adapter
+## Task 10: Solari BrokerCheck adapter
 
-**Time box: 30 min.** Shape depends on Task 4's spike outcome.
+**Time box: 30 min.** Shape depends on Task 5's spike.
 
 **Files:**
-- Create: `app/adapters/solari.py`, `app/adapters/__init__.py`
-- Create: `fixtures/cache/license_check.json`
+- Create: `app/adapters/__init__.py`, `app/adapters/solari.py`, `fixtures/cache/license_check.json`
 
 **Interfaces:**
-- Produces: `check_license(full_name: str, crd: str | None) -> dict` returning keys `licenses`, `active`, `source_url`, `screenshot_url`, `checked_at`, `cache_hit`
+- Produces: `check_license(full_name: str, crd: str | None) -> dict` with keys `licenses`, `active`, `source_url`, `screenshot_url`, `checked_at`, `cache_hit`
 
-- [ ] **Step 1: Write the cache fixture first (this is the demo's safety net)**
+- [ ] **Step 1: Write the cache fixture first — this is the demo's safety net**
 
 ```json
 {
-  "jane_doe_65": {
+  "default": {
     "licenses": ["Series 65"],
     "active": true,
-    "source_url": "https://brokercheck.finra.org/individual/summary/0000000",
-    "screenshot_url": "/static/brokercheck_jane_doe.png",
+    "source_url": "https://brokercheck.finra.org/individual/summary/REPLACE_WITH_REAL_CRD",
+    "screenshot_url": "/static/brokercheck_capture.png",
     "checked_at": "2026-10-24T18:00:00Z",
     "cache_hit": true
   }
 }
 ```
+Key it by the **real** CRD/name chosen in Task 2 step 4, and keep `default` as the catch-all.
 
 - [ ] **Step 2: Write `app/adapters/solari.py`**
 
 ```python
-import json, os, pathlib, datetime
+import json, os, pathlib
 from app.tracing import span
 
 CACHE = json.loads(pathlib.Path("fixtures/cache/license_check.json").read_text())
 TIMEOUT_S = 45
 
 
-def _cache_key(full_name: str) -> str:
-    return full_name.lower().replace(" ", "_") + "_65"
-
-
 def _cached(full_name: str) -> dict:
-    return CACHE.get(_cache_key(full_name)) or {
+    key = full_name.lower().replace(" ", "_")
+    return CACHE.get(key) or CACHE.get("default") or {
         "licenses": [], "active": False, "source_url": "",
-        "screenshot_url": "", "checked_at": "", "cache_hit": True,
-    }
+        "screenshot_url": "", "checked_at": "", "cache_hit": True}
 
 
 def check_license(full_name: str, crd: str | None = None) -> dict:
-    """Drive a Solari cloud browser to FINRA BrokerCheck. Falls back to cache on
-    any failure or timeout — a flaky browser must never break the demo."""
+    """Drive a Solari cloud browser to FINRA BrokerCheck. Falls back to cache on any
+    failure or timeout — a flaky browser must never break the demo."""
     with span("solari.brokercheck", target=full_name, crd=crd or "") as s:
         if os.getenv("DEMO_MODE", "cached") == "cached":
             out = _cached(full_name)
@@ -1431,40 +1719,40 @@ def check_license(full_name: str, crd: str | None = None) -> dict:
 
 
 def _live_lookup(full_name: str, crd: str | None) -> dict:
-    """Fill in from the Solari docs after the Task 4 spike. Must: open a cloud
-    browser, go to https://brokercheck.finra.org/, search full_name or crd, read
-    registration rows, capture a screenshot, return the dict shape above."""
-    raise NotImplementedError("wire from Solari docs after spike")
+    """Fill in from the Solari docs using what Task 5 learned. Must: open a cloud
+    browser, go to https://brokercheck.finra.org/, search crd or full_name, read the
+    registration rows, capture a screenshot, and return the dict shape above with
+    checked_at set to the UTC timestamp of the capture."""
+    raise NotImplementedError("wire from Solari docs after the Task 5 spike")
 ```
 
-- [ ] **Step 3: Wire `_live_lookup` using what Task 4 learned, then verify**
+- [ ] **Step 3: Wire `_live_lookup`, then verify the fallback actually works**
 
-Run: `DEMO_MODE=live python -c "from app.adapters.solari import check_license; print(check_license('Jane Doe'))"`
-Expected: real licenses and a screenshot URL, or a silent cache fallback. **Either outcome is acceptable** — verify the fallback path works by running with a bogus API key.
+Run: `DEMO_MODE=live python -c "from app.adapters.solari import check_license; print(check_license('<real name>'))"`
+Then deliberately break it: `DEMO_MODE=live SOLARI_API_KEY=bogus python -c "..."` — must return cached data, not raise. **Verifying the fallback matters more than the live path.**
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add app/adapters/ fixtures/cache/license_check.json
-git commit -m "feat: Solari BrokerCheck adapter with cache fallback"
+git commit -m "feat: Solari BrokerCheck adapter with verified cache fallback"
 ```
 
 ---
 
-## Task 10: akta.pro entity corroboration adapter
+## Task 11: akta.pro entity corroboration adapter
 
 **Time box: 25 min.** Entity cases only.
 
 **Files:**
-- Create: `app/adapters/akta.py`
-- Create: `fixtures/cache/entity_corroboration.json`
+- Create: `app/adapters/akta.py`, `fixtures/cache/entity_corroboration.json`
 
 **Interfaces:**
-- Produces: `enrich_entity(name: str, domain: str | None) -> dict` returning `resolved`, `headcount`, `funding_total`, `operating_business_signal`, `adverse_news`, `cache_hit`
+- Produces: `enrich_entity(name: str, domain: str | None) -> dict` with keys `resolved`, `headcount`, `funding_total`, `operating_business_signal`, `adverse_news`, `cache_hit`
 
-- [ ] **Step 1: Write the cache fixture**
+- [ ] **Step 1: Write the cache fixture — two entries**
 
-Two entries: one healthy operating company, one unresolvable shell (`resolved: false`) for demo case 3.
+One healthy operating company, and one unresolvable shell (`"resolved": false`) keyed to case 3's entity name.
 
 - [ ] **Step 2: Write `app/adapters/akta.py`**
 
@@ -1479,12 +1767,11 @@ CACHE = json.loads(pathlib.Path("fixtures/cache/entity_corroboration.json").read
 def _cached(name: str) -> dict:
     return CACHE.get(name.lower()) or {
         "resolved": False, "headcount": None, "funding_total": None,
-        "operating_business_signal": False, "adverse_news": [], "cache_hit": True,
-    }
+        "operating_business_signal": False, "adverse_news": [], "cache_hit": True}
 
 
 def enrich_entity(name: str, domain: str | None = None) -> dict:
-    """Company/org-level corroboration ONLY. akta.pro has no individual-level data,
+    """Company/org-level corroboration ONLY. akta.pro holds no individual-level data,
     so this can never establish accredited status — it only flags shell risk."""
     with span("akta.company_enrich", company=name) as s:
         if os.getenv("DEMO_MODE", "cached") == "cached":
@@ -1503,10 +1790,10 @@ def enrich_entity(name: str, domain: str | None = None) -> dict:
 
 
 def _live_enrich(name: str, domain: str | None) -> dict:
-    """Company Search → Company Data → News Signals. Confirm exact paths against
-    docs.akta.pro; the endpoint names are documented, the URL shapes are not."""
-    key = os.environ["AKTA_API_KEY"]
-    headers = {"Authorization": f"Bearer {key}"}
+    """Company Search -> Company Data -> News Signals. The endpoint NAMES are
+    documented at docs.akta.pro; confirm the exact URL shapes there and correct the
+    paths below if they differ."""
+    headers = {"Authorization": f"Bearer {os.environ['AKTA_API_KEY']}"}
     with httpx.Client(timeout=20.0, headers=headers) as c:
         found = c.post(f"{BASE}/v1/companies/search",
                        json={"query": domain or name}).json()
@@ -1519,25 +1806,20 @@ def _live_enrich(name: str, domain: str | None) -> dict:
         news = c.get(f"{BASE}/v1/companies/{uuid}/news").json()
 
     headcount = data.get("headcount") or data.get("employee_count")
-    adverse = [
-        {"title": n.get("title", ""), "sentiment": n.get("sentiment", ""),
-         "date": n.get("published_at", "")}
-        for n in (news.get("articles") or news.get("data") or [])
-        if str(n.get("sentiment", "")).lower() in ("negative", "very_negative")
-    ]
-    return {
-        "resolved": True,
-        "headcount": headcount,
-        "funding_total": data.get("funding_total"),
-        "operating_business_signal": bool(headcount and headcount > 0),
-        "adverse_news": adverse[:5],
-    }
+    adverse = [{"title": n.get("title", ""), "sentiment": n.get("sentiment", ""),
+                "date": n.get("published_at", "")}
+               for n in (news.get("articles") or news.get("data") or [])
+               if str(n.get("sentiment", "")).lower() in ("negative", "very_negative")]
+    return {"resolved": True, "headcount": headcount,
+            "funding_total": data.get("funding_total"),
+            "operating_business_signal": bool(headcount and headcount > 0),
+            "adverse_news": adverse[:5]}
 ```
 
 - [ ] **Step 3: Verify both modes**
 
-Run: `python -c "from app.adapters.akta import enrich_entity; print(enrich_entity('Acme Holdings LLC'))"` (cached)
-Then: `DEMO_MODE=live ...` against a real company. If the endpoint paths are wrong, fix them from `docs.akta.pro` — **do not exceed the time box**, the cache carries the demo.
+Cached: `python -c "from app.adapters.akta import enrich_entity; print(enrich_entity('Acme Holdings LLC'))"`
+Live: `DEMO_MODE=live ...` against a real company. If paths are wrong, fix from `docs.akta.pro` — **do not exceed the box**, the cache carries the demo.
 
 - [ ] **Step 4: Commit**
 
@@ -1548,16 +1830,15 @@ git commit -m "feat: akta.pro entity corroboration with cache fallback"
 
 ---
 
-## Task 11: Pipeline orchestration and SSE streaming
+## Task 12: Pipeline orchestration and SSE streaming
 
-**Time box: 40 min.** Replaces Task 1's mock `/run`.
+**Time box: 40 min.** Replaces Task 3's mock `/run`.
 
 **Files:**
 - Create: `app/pipeline.py`
-- Modify: `app/main.py` (replace `run_mock`)
+- Modify: `app/main.py`
 
 **Interfaces:**
-- Consumes: everything above
 - Produces: `run_pipeline(case: Case) -> Iterator[dict]` yielding `{"stage", "status", "detail"}`
 
 - [ ] **Step 1: Write `app/pipeline.py`**
@@ -1565,11 +1846,12 @@ git commit -m "feat: akta.pro entity corroboration with cache fallback"
 ```python
 import datetime
 from typing import Iterator
+from app import store
 from app.models import Case, AuditEvent
 from app.nicrron import classify_document
 from app.debate import run_debate
 from app.validator import validate
-from app.triage import triage
+from app.triage import triage, detect_conflict, assert_issue_guardrail
 from app.letter import draft_letter
 from app.venue import get_venue
 from app.adapters.solari import check_license
@@ -1588,22 +1870,25 @@ def run_pipeline(case: Case) -> Iterator[dict]:
     venue = get_venue()
     thread = venue.open_thread(case.case_id)
 
-    with span("case", case_id=case.case_id, claimed_path=case.claimed_path):
-        # EXTRACT — classify, then debate each document
+    with span("case", case_id=case.case_id, claimed_path=case.claimed_path,
+              subject_type=case.subject_type):
+        # EXTRACT — classify every document, then ONE debate over all of them
         yield {"stage": "extract", "status": "running", "detail": "classifying documents"}
-        with span("stage:extract"):
+        with span("stage:extract", doc_count=len(case.documents)):
             for doc in case.documents:
                 doc.doc_type = classify_document(doc)
-                result = run_debate(doc)
-                case.debate.extend(result.turns)
-                case.extracted.update(result.fields)
+            if case.documents:
+                result = run_debate(case.documents)
+                case.debate = result.turns
+                case.extracted = result.fields
                 case.recommendation = result.recommendation
                 for turn in result.turns:
                     venue.post_turn(thread, turn.actor, turn.model, turn.model_dump())
-                _audit(case, "extract", turn.actor if result.turns else "extractor",
-                       f"{doc.filename}: {len(result.fields)} fields, "
-                       f"{sum(len(t.challenges) for t in result.turns)} challenges")
+                    _audit(case, "extract", turn.actor,
+                           f"round {turn.round}: {len(turn.challenges)} challenges, "
+                           f"{len(turn.resolutions)} resolutions")
         venue.save_version(case, "extract")
+        store.save(case)
         yield {"stage": "extract", "status": "done",
                "detail": f"{len(case.extracted)} fields after debate"}
 
@@ -1619,6 +1904,7 @@ def run_pipeline(case: Case) -> Iterator[dict]:
                     case.subject_name, case.entity_domain)
                 _audit(case, "enrich", "akta.pro", "entity corroboration")
         venue.save_version(case, "enrich")
+        store.save(case)
         yield {"stage": "enrich", "status": "done", "detail": "evidence gathered"}
 
         # VALIDATE — deterministic
@@ -1626,19 +1912,23 @@ def run_pipeline(case: Case) -> Iterator[dict]:
         with span("stage:validate"):
             case.validation = validate(case)
         venue.save_version(case, "validate")
+        store.save(case)
         yield {"stage": "validate", "status": "done",
                "detail": "; ".join(f"{r.rule_id}={r.outcome}" for r in case.validation)}
 
         # TRIAGE
         yield {"stage": "triage", "status": "running", "detail": "routing"}
-        case.decision, case.decision_reason = triage(case)
-        from app.triage import detect_conflict
         case.conflict = detect_conflict(case)
+        case.decision, case.decision_reason = triage(case)
         _audit(case, "triage", "system", f"{case.decision}: {case.decision_reason}")
-        yield {"stage": "triage", "status": "done", "detail": case.decision}
+        store.save(case)
+        yield {"stage": "triage", "status": "done",
+               "detail": f"{case.decision}"
+                         f"{' (CONFLICT)' if case.conflict else ''}"}
 
         # ISSUE
         if case.decision == "auto_approved":
+            assert_issue_guardrail(case)
             yield {"stage": "issue", "status": "running", "detail": "drafting letter"}
             with span("stage:issue"):
                 case.letter_md = draft_letter(case)
@@ -1647,6 +1937,7 @@ def run_pipeline(case: Case) -> Iterator[dict]:
 
         case.trace_url = current_trace_url()
         venue.save_version(case, "final")
+        store.save(case)
         yield {"stage": "complete", "status": "done", "detail": case.decision}
 ```
 
@@ -1663,24 +1954,19 @@ init_tracing()
 
 @app.post("/cases/{case_id}/run")
 def run_case(case_id: str):
-    case = CASES.get(case_id)
-    if not case:
-        raise HTTPException(404, "case not found")
+    case = _require(case_id)
 
     def stream():
         for event in run_pipeline(case):
             yield f"data: {json.dumps(event)}\n\n"
-        yield f"data: {json.dumps({'stage': 'case', 'status': 'done', 'detail': case.decision})}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream")
 ```
 
 - [ ] **Step 3: Run one case end to end**
 
-```bash
-curl -N -X POST localhost:8000/cases/<id>/run
-```
-Expected: stage events streaming in order `extract → enrich → validate → triage → [issue] → complete`.
+Run: `curl -N -X POST localhost:8000/cases/<id>/run`
+Expected: events in order `extract → enrich → validate → triage → [issue] → complete`.
 
 - [ ] **Step 4: Commit**
 
@@ -1691,9 +1977,9 @@ git commit -m "feat: pipeline orchestration with SSE stage streaming"
 
 ---
 
-## Task 12: Roundtable venue and letter generation
+## Task 13: Roundtable venue and letter generation
 
-**Time box: 45 min.**
+**Time box: 45 min.** First candidate for the cut ladder if you are behind.
 
 **Files:**
 - Create: `app/venue.py`, `app/letter.py`
@@ -1701,7 +1987,7 @@ git commit -m "feat: pipeline orchestration with SSE stage streaming"
 **Interfaces:**
 - Produces: `get_venue() -> DebateVenue`, `LocalJsonVenue`, `RoundtableVenue`, `draft_letter(case: Case) -> str`
 
-- [ ] **Step 1: Write `app/venue.py` with the local impl first**
+- [ ] **Step 1: Write `app/venue.py`, local implementation first**
 
 ```python
 import json, os, pathlib
@@ -1726,7 +2012,8 @@ class LocalJsonVenue:
     def post_turn(self, thread: str, actor: str, model: str, content: dict) -> None:
         p = OUT / f"{thread.split(':')[-1]}_turns.jsonl"
         with p.open("a") as f:
-            f.write(json.dumps({"actor": actor, "model": model, "content": content}) + "\n")
+            f.write(json.dumps({"actor": actor, "model": model,
+                                "content": content}) + "\n")
 
     def save_version(self, case: Case, stage: str) -> str:
         p = OUT / f"{case.case_id}_{stage}.json"
@@ -1735,8 +2022,8 @@ class LocalJsonVenue:
 
 
 class RoundtableVenue:
-    """Debate thread + versioned case file in a Roundtable workspace. Every method
-    falls back to local on failure — Roundtable must never break the pipeline."""
+    """The debate thread plus a versioned case file in a Roundtable workspace. Every
+    method falls back to local on failure — Roundtable must never break the pipeline."""
 
     def __init__(self):
         from roundtable import Client  # adjust to the real SDK import
@@ -1753,11 +2040,11 @@ class RoundtableVenue:
         self._local.post_turn(thread, actor, model, content)
         if thread.startswith("local:"):
             return
-        with span("roundtable.post_turn", actor=actor):
+        with span("roundtable.post_turn", actor=actor, model=model):
             try:
-                self._c.messages.create(
-                    thread_id=thread, author=f"{actor} ({model})",
-                    body=json.dumps(content, indent=2)[:8000])
+                self._c.messages.create(thread_id=thread,
+                                        author=f"{actor} ({model})",
+                                        body=json.dumps(content, indent=2)[:8000])
             except Exception:
                 pass
 
@@ -1790,10 +2077,9 @@ from app.nicrron import complete_json, ADJUDICATOR_MODEL
 from app.tracing import span
 
 SYSTEM = (
-    "You draft accreditation verification letters for a Rule 506(c) offering. "
-    "Every figure, citation, and the determination itself are FIXED INPUTS — "
-    "reproduce them exactly and never recompute, reinterpret, or soften them. "
-    "Reply with JSON only."
+    "You draft accreditation verification letters for a Rule 506(c) offering. Every "
+    "figure, citation, and the determination itself are FIXED INPUTS — reproduce them "
+    "exactly and never recompute, reinterpret, or soften them. Reply with JSON only."
 )
 
 
@@ -1805,31 +2091,36 @@ def draft_letter(case: Case) -> str:
         "determination": "ACCREDITED",
         "basis": [{"rule_id": r.rule_id, "citation": r.citation, "reason": r.reason,
                    "inputs_used": r.inputs_used} for r in passing],
-        "agent_review": {
+        "documents_reviewed": [d.filename for d in case.documents],
+        "independent_review": {
             "extractor_and_challenger_agreed": not case.conflict,
             "trust_assessment": (case.recommendation.trust_assessment
                                  if case.recommendation else ""),
         },
-        "evidence_sources": list(case.evidence.keys()),
+        "external_sources": list(case.evidence.keys()),
     }
     with span("letter.draft", model=ADJUDICATOR_MODEL) as s:
         out = complete_json(
             ADJUDICATOR_MODEL, SYSTEM,
             "Write a short formal verification letter in Markdown from these fixed "
-            'facts. Reply {"letter_md": "..."}. Include: determination, the statutory '
-            "basis with citation, which documents and sources were reviewed, a note "
-            "that two independent AI models reviewed the documents and a deterministic "
-            "validator confirmed the thresholds, and that this verification is valid "
-            f"for 90 days.\n\nFacts: {facts}")
+            'facts. Reply {"letter_md": "..."}.\nInclude: the determination, the '
+            "statutory basis with its citation, which documents and external sources "
+            "were reviewed, a note that two independent AI models from different "
+            "vendors reviewed the documents and a deterministic validator "
+            "independently confirmed the statutory thresholds, and that this "
+            "verification is valid for 90 days. State that a documented process of "
+            "this kind GENERALLY supports the issuer's reasonable-belief position — "
+            "do not promise that it guarantees anything.\n\n"
+            f"Facts: {facts}")
         letter = out.get("letter_md", "")
         s.set(letter_len=len(letter))
     return letter
 ```
 
-- [ ] **Step 3: Verify both**
+- [ ] **Step 3: Verify**
 
-Run: `python -c "from app.venue import get_venio" 2>/dev/null; python -c "from app.venue import get_venue; v=get_venue(); print(type(v).__name__, v.open_thread('case_x'))"`
-Expected: `RoundtableVenue` with a real thread id, or `LocalJsonVenue` — both acceptable.
+Run: `python -c "from app.venue import get_venue; v=get_venue(); print(type(v).__name__, v.open_thread('case_x'))"`
+Expected: `RoundtableVenue` with a real thread id, or `LocalJsonVenue` — **both acceptable**.
 
 - [ ] **Step 4: Commit**
 
@@ -1840,50 +2131,53 @@ git commit -m "feat: Roundtable debate venue and letter generation"
 
 ---
 
-## Task 13: Demo fixtures, caching, and rehearsal
+## Task 14: Seed, cache, and rehearse
 
 **Time box: 40 min.** Do not skip. An unrehearsed demo is a failed demo.
 
 **Files:**
-- Create: `fixtures/cases/case1_clean_income.json` … `case5_conflict.json`
 - Create: `scripts/seed_demo.py`
 
-- [ ] **Step 1: Build the five fixture cases from spec §9**
+- [ ] **Step 1: Write `scripts/seed_demo.py`**
 
-1. Clean individual income — 2× W-2 + 1040, all above threshold
-2. Series 65 license holder (uses the real public CRD from Task 4)
-3. Entity LLC — resolves to the shell entry in the akta cache
-4. Doctored bank statement — internally inconsistent totals so the challenger catches it
-5. **Income `199,400`** — must produce `conflict: true` and `needs_review`
+Loads each fixture in `fixtures/cases/`, POSTs the case with its attestations, uploads its documents, runs the pipeline, and prints a table of `case_id | claimed_path | decision | conflict`.
 
-- [ ] **Step 2: Write `scripts/seed_demo.py`**
-
-Loads all five fixtures, POSTs each case, uploads its documents, runs the pipeline, and prints a decision table.
-
-- [ ] **Step 3: Run the seed and verify every decision matches the spec table**
+- [ ] **Step 2: Run it and check every decision against the expected table**
 
 Run: `python scripts/seed_demo.py`
-Expected: `auto_approved, auto_approved, needs_review, needs_review, needs_review` — and case 5 must show `conflict: true`. If case 5 does not conflict, adjust the fixture income until the agents approve and the validator fails; **that beat is the demo's centerpiece.**
+
+| Case | Expected decision | Expected conflict |
+|---|---|---|
+| 1 clean income | `auto_approved` | false |
+| 2 license | `auto_approved` | false |
+| 3 entity shell | `needs_review` | false |
+| 4 arithmetic forgery | `needs_review` | false |
+| 5 temporal conflict | `needs_review` | **true** |
+
+**Case 5 must show `conflict: true`.** If the agents correctly catch the 2024 shortfall, the conflict will not fire — widen the gap between what averaging suggests and what "each year" requires (raise 2025, lower 2024) until the adjudicator approves. **That beat is the demo's centerpiece; budget iterations for it.**
+
+- [ ] **Step 3: Snapshot each completed run as a replay cache**
+
+Copy each finished case JSON from `fixtures/live_cases/` into `fixtures/cases/replay/`. If the live debate exceeded ~25s in Task 7 step 5, the demo plays from these and you do **one** short live run as the honesty beat.
 
 - [ ] **Step 4: Run the WiFi-down drill**
 
-Disconnect WiFi, set `DEMO_MODE=cached`, run `scripts/seed_demo.py` again. Every case must still complete. Any crash here is a P0 — fix it before anything else.
+Disconnect WiFi, set `DEMO_MODE=cached`, re-run `scripts/seed_demo.py`. Every case must still complete. **Any crash here is a P0** — fix it before anything else.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add fixtures/ scripts/seed_demo.py
-git commit -m "feat: five demo fixtures, cached responses, offline drill"
+git add scripts/seed_demo.py fixtures/
+git commit -m "feat: demo seeding, replay cache, offline drill"
 ```
 
 ---
 
-## Task 14 (DEFERRED — only if time remains): Deterministic parser cross-check
+## Task 15 (DEFERRED — only if the demo is already safe): deterministic parser cross-check
 
-Per the user's direction, this comes **last** and only if the demo is already safe. It is the second backend engineer's parser, slotted in as an independent second extraction.
+Per the user's direction this comes **last**. It is the second backend engineer's parser, slotted in as an independent second extraction. Do not let it onto the critical path.
 
-**Files:**
-- Modify: `app/validator.py` (add the cross-check), `app/triage.py` (honor it)
+**Files:** Modify `app/validator.py`, `tests/test_validator.py`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1892,28 +2186,29 @@ Per the user's direction, this comes **last** and only if the demo is already sa
 from app.validator import cross_check_extraction
 from app.models import Field
 
+
 def test_cross_check_flags_disagreement():
-    agent = {"income_year_1": Field(value=214500, confidence=0.95)}
-    deterministic = {"income_year_1": 198000}
-    conflict, notes = cross_check_extraction(agent, deterministic)
+    agent = {"income_year_1": Field(value=240000, confidence=0.95)}
+    conflict, notes = cross_check_extraction(agent, {"income_year_1": 198000})
     assert conflict is True
+    assert agent["income_year_1"].disputed is True
     assert "income_year_1" in notes[0]
 
+
 def test_cross_check_raises_confidence_on_agreement():
-    agent = {"income_year_1": Field(value=214500, confidence=0.80)}
-    deterministic = {"income_year_1": 214500}
-    conflict, _ = cross_check_extraction(agent, deterministic)
+    agent = {"income_year_1": Field(value=240000, confidence=0.80)}
+    conflict, _ = cross_check_extraction(agent, {"income_year_1": 240000})
     assert conflict is False
     assert agent["income_year_1"].confidence > 0.80
 ```
 
-- [ ] **Step 2: Run it and watch it fail, then implement**
+- [ ] **Step 2: Run it, watch it fail, then implement**
 
 ```python
 def cross_check_extraction(agent_fields: dict, deterministic: dict
                            ) -> tuple[bool, list[str]]:
     """Two independent extractions corroborating each other. Agreement raises
-    confidence; disagreement forces human review."""
+    confidence; disagreement disputes the field and forces human review."""
     notes, conflict = [], False
     for name, det_value in deterministic.items():
         f = agent_fields.get(name)
@@ -1932,18 +2227,36 @@ def cross_check_extraction(agent_fields: dict, deterministic: dict
     return conflict, notes
 ```
 
-- [ ] **Step 3: Run tests, then commit**
+- [ ] **Step 3: Run tests and commit**
 
 ```bash
 pytest tests/test_validator.py -v
 git add app/validator.py tests/test_validator.py
-git commit -m "feat: deterministic parser cross-check as second extraction"
+git commit -m "feat: deterministic parser cross-check as an independent second extraction"
 ```
+
+---
+
+## Cut Ladder
+
+Apoorv's own tasks sum to **~7.5 hours** (455 min) against a ~6 hour clock — Task 2 is delegated and runs in parallel, so it does not count. The overrun is real, so cuts are planned rather than improvised. Cut from the top when you fall behind; every line below keeps all five sponsors integrated:
+
+| Cut | Saves | What is lost |
+|---|---|---|
+| 1. Roundtable → `LocalJsonVenue` only | 30 min | The workspace view. The debate still runs and is logged; Roundtable stays integrated via a single real `open_thread` call. |
+| 2. akta.pro → cached only, skip `_live_enrich` | 20 min | Nothing visible. The call shape is real, the response is pre-fetched. |
+| 3. Letter → Jinja-style template instead of a model call | 20 min | Prose polish. Facts are identical since they were always fixed inputs. |
+| 4. SSE → frontend polls `GET /cases/{id}` | 20 min | The live turn-by-turn reveal. Decide this **with** the frontend engineer, never unilaterally. |
+| 5. Drop demo case 4 (forgery) | 15 min | A memorable beat. Cut case 4 before case 5 — case 5 is the architecture's proof. |
+
+**Never cut:** Task 1 (modality), Task 2 (fixtures), Task 8/9 (validator + triage — demo case 5 lives there), Task 14 step 4 (the WiFi drill).
 
 ---
 
 ## Self-Review Notes
 
-**Spec coverage:** §4 architecture → Tasks 1, 11. §5.1 Nicrron debate → Tasks 5, 6. §5.2 Roundtable → Task 12. §5.3 PRISM → Task 2 (spans added throughout). §5.4 akta.pro → Task 10. §5.5 Solari → Tasks 4, 9. §6 validator → Task 7. §7 triage → Task 8. §8 API contract → Task 1. §9 demo cases → Task 13. §10 risk fallbacks → Tasks 2, 9, 10, 12 (every adapter has one). §12 open questions → Tasks 3, 4 resolve two of them.
+**Spec coverage:** §4 architecture → Tasks 3, 12. §5.1 Nicrron debate → Tasks 6, 7. §5.2 Roundtable → Task 13. §5.3 PRISM → Task 4, guardrail in Task 9, spans throughout. §5.4 akta.pro → Task 11. §5.5 Solari → Tasks 5, 10. §6 validator → Task 8. §7 triage → Task 9. §8 API contract → Task 3. §9 demo cases → Tasks 2, 14. §10 risk fallbacks → every adapter, plus the Cut Ladder. §12 open questions → Tasks 1 and 5 resolve two; the organizer ruling is in Provisioning Order step 6.
 
-**Known gaps, deliberate:** the GP dashboard UI is the frontend engineer's work against Task 1's contract. Letter PDF rendering is out (Markdown only). `app/main.py` holds state in a module-level dict — correct for a one-session demo, wrong for anything else.
+**Spec changes this plan supersedes:** demo case 5 is now a temporal conflict ($240K/$185K), not `$199,400`; the debate runs once per case, not per document; documents are assumed text-only until Task 1 proves otherwise; `signs_of_alteration` is conditional on vision; intake collects three written attestations; the customer is 506(c) issuers rather than small VC funds. **Update the spec to match** so the two documents do not diverge.
+
+**Known gaps, deliberate:** the GP dashboard UI is the frontend engineer's work against Task 3's contract. Letter PDF rendering is out — Markdown only. `fixtures/live_cases/` is a flat-file store, correct for a one-session demo and wrong for anything else.
