@@ -81,46 +81,17 @@ class EncryptedText(TypeDecorator):
 
 
 # --------------------------------------------------------------------------- #
-# Enums (values mirror the frontend contract in src/lib/types.ts)
+# Enums live in enums.py (shared with schemas.py); re-exported here.
 # --------------------------------------------------------------------------- #
 
-class Offering(str, enum.Enum):
-    RULE_506C = "506(c)"
-    RULE_506B = "506(b)"
-
-
-class InvestorType(str, enum.Enum):
-    INDIVIDUAL = "individual"
-    JOINT = "joint"
-    ENTITY = "entity"
-
-
-class EntityKind(str, enum.Enum):
-    LLC = "llc"
-    CORPORATION = "corporation"
-    PARTNERSHIP = "partnership"
-    TRUST = "trust"
-
-
-class Pathway(str, enum.Enum):
-    INCOME = "income"
-    NET_WORTH = "net_worth"
-    LICENSE = "license"
-    MIN_INVESTMENT = "min_investment"
-    ENTITY_ASSETS = "entity_assets"
-
-
-class AttemptStatus(str, enum.Enum):
-    RECEIVED = "received"
-    REJECTED_QUOTE_MISMATCH = "rejected_quote_mismatch"
-    EVALUATED = "evaluated"
-
-
-class Decision(str, enum.Enum):
-    APPROVED = "approved"
-    REVIEW = "review"
-    NEEDS_INFO = "needs_info"
-    DENIED = "denied"
+from enums import (  # noqa: E402,F401
+    AttemptStatus,
+    Decision,
+    EntityKind,
+    InvestorType,
+    Offering,
+    Pathway,
+)
 
 
 def _pg_enum(py_enum: type[enum.Enum], name: str) -> Enum:
