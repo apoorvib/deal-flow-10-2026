@@ -1,7 +1,7 @@
 import { Check, Loader2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { Seal } from '../../components/ui/misc'
+import mark from '../../assets/savy-mark.png'
 
 const STAGES = ['Confirming identity and sanctions screen', 'Reconciling your documents', 'Applying Rule 501(a) tests', 'Preparing your verification file']
 
@@ -19,9 +19,7 @@ export function SubmitOverlay({ open }: { open: boolean }) {
           aria-live="polite"
         >
           <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="w-full max-w-sm">
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 18, ease: 'linear', repeat: Infinity }} className="mx-auto w-fit">
-              <Seal className="size-14 text-accent" />
-            </motion.div>
+            <motion.img src={mark} alt="" className="mx-auto h-16 w-auto" animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }} />
             <h2 className="display mt-6 text-center text-[26px] text-ink">Reviewing your application</h2>
             <Stages />
           </motion.div>

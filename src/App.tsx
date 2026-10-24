@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { CircleHelp, ShieldCheck, UserRound } from 'lucide-react'
-import { Seal } from './components/ui/misc'
+import logoReversed from './assets/savy-logo-reversed.png'
+import logo from './assets/savy-logo.png'
 import { isMock } from './lib/api/client'
 import { BRAND } from './lib/brand'
 import { motionEase } from './lib/format'
@@ -37,14 +38,13 @@ const NAV = [
   { to: '/#funds', label: 'For funds' },
 ]
 
-function Wordmark() {
+function Wordmark({ className }: { className?: string }) {
   return (
-    <Link to="/" className="flex items-center gap-2 text-navy dark:text-ink" aria-label={`${BRAND.name} home`}>
-      <Seal className="size-8 text-accent" />
-      <span className="text-[21px] leading-none tracking-[-0.01em]">
-        <span className="font-bold">Dealflow</span>
-        <span className="font-light">Passport</span>
-      </span>
+    <Link to="/" className="shrink-0" aria-label={`${BRAND.name} home`}>
+      <picture>
+        <source srcSet={logoReversed} media="(prefers-color-scheme: dark)" />
+        <img src={logo} alt={BRAND.name} className={className ?? 'h-10 w-auto'} />
+      </picture>
     </Link>
   )
 }
@@ -100,7 +100,7 @@ function Footer() {
       <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8">
         <div className="grid gap-10 sm:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div>
-            <Wordmark />
+            <Wordmark className="h-8 w-auto" />
             <p className="mt-4 max-w-xs text-[14px] leading-relaxed text-ink-3">One reusable accredited investor verification for every fund you invest in.</p>
           </div>
           {FOOTER_COLS.map((c) => (

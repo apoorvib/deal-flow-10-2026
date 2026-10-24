@@ -118,15 +118,3 @@ export function Divider({ className }: { className?: string }) {
   return <hr className={cn('border-0 border-t border-line', className)} />
 }
 
-/** Tiny wordmark: a rosette seal + name. */
-export function Seal({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <g fill="none" stroke="currentColor">
-        <circle cx="16" cy="16" r="14.5" strokeWidth="1" />
-        <circle cx="16" cy="16" r="11" strokeWidth="0.75" strokeDasharray="1.2 1.6" />
-        <path d="M10.5 16.4l3.6 3.6 7.4-8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
-  )
-}

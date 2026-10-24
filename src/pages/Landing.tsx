@@ -65,7 +65,7 @@ export default function Landing() {
 
       {/* Value tiles */}
       <section className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
-        <h2 className="display text-center text-[clamp(30px,3.6vw,42px)] text-ink">Why investors use Passport</h2>
+        <h2 className="display text-center text-[clamp(30px,3.6vw,42px)] text-ink">Why investors use Savy</h2>
         <div className="mt-12 grid gap-6 md:grid-cols-3">
           {[
             { icon: Clock, title: 'Minutes, not weeks', body: 'Clean applications are approved automatically. No more waiting days for a CPA letter.', cta: 'Start now', to: '/verify' },

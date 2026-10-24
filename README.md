@@ -1,4 +1,4 @@
-# Dealflow Passport (frontend)
+# Savy (frontend)
 
 React UI that lets an LP get verified as an accredited investor once, then share a reusable passport with funds. Product research: [plan.md](plan.md).
 
@@ -36,4 +36,4 @@ The backend owns every decision. `src/lib/rules.ts` mirrors the thresholds only 
 
 ## Stack
 
-Vite, React 19, TypeScript, Tailwind v4, Motion, NumberFlow, Radix primitives, Lucide, Sonner. The placeholder brand name lives in `src/lib/brand.ts`.
+Vite, React 19, TypeScript, Tailwind v4, Motion, NumberFlow, Radix primitives, Lucide, Sonner. Brand name lives in `src/lib/brand.ts`; logo files (transparent PNGs, plus a reversed version for dark backgrounds) are in `src/assets/`.

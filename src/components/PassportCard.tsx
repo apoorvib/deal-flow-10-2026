@@ -74,10 +74,10 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
           my.set(0.5)
         }}
         style={tilt ? { rotateX: rotX, rotateY: rotY, transformStyle: 'preserve-3d' } : undefined}
-        className="relative aspect-[1.586/1] w-full overflow-hidden rounded-[14px] bg-[#0f2a3d] text-[#efe9dc] shadow-[0_1px_0_rgb(255_255_255/0.08)_inset,0_30px_60px_-24px_rgb(10_20_30/0.5),0_12px_24px_-12px_rgb(10_20_30/0.3)] select-none"
+        className="relative aspect-[1.586/1] w-full overflow-hidden rounded-[14px] bg-[#04493a] text-[#efe9dc] shadow-[0_1px_0_rgb(255_255_255/0.08)_inset,0_30px_60px_-24px_rgb(2_30_24/0.5),0_12px_24px_-12px_rgb(2_30_24/0.3)] select-none"
       >
         {/* Base tone and vignette */}
-        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_20%,#1f4e72_0%,#0f2a3d_50%,#0a1c29_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_20%,#0b6a52_0%,#04493a_50%,#022a21_100%)]" />
 
         {/* Guilloche */}
         <svg viewBox="0 0 600 378" className="absolute inset-0 size-full" preserveAspectRatio="xMidYMid slice" aria-hidden>
