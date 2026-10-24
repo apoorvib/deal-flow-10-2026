@@ -1,6 +1,6 @@
 # Dealflow Passport (frontend)
 
-React UI that lets an LP get verified as an accredited investor once, then share a reusable passport with funds. Product research: [accredited-lp-verification-research.md](accredited-lp-verification-research.md).
+React UI that lets an LP get verified as an accredited investor once, then share a reusable passport with funds. Product research: [plan.md](plan.md).
 
 ## Run
 
