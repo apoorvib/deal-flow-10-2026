@@ -6,10 +6,10 @@ import type { PhotoKey } from '../lib/photos'
 import type { InvestorType } from '../lib/types'
 import { getSession } from '../lib/session'
 
-const TYPES: { id: InvestorType; label: string; icon: typeof User }[] = [
-  { id: 'individual', label: 'Just me', icon: User },
-  { id: 'joint', label: 'Me and my spouse', icon: Users },
-  { id: 'entity', label: 'An entity or trust', icon: Building2 },
+const TYPES: { id: InvestorType; label: string; icon: typeof User; photo: PhotoKey }[] = [
+  { id: 'individual', label: 'Just me', icon: User, photo: 'img05' },
+  { id: 'joint', label: 'Me and my spouse', icon: Users, photo: 'img18' },
+  { id: 'entity', label: 'An entity or trust', icon: Building2, photo: 'img09' },
 ]
 
 const PROCESS = [
@@ -31,15 +31,6 @@ export default function GetStarted() {
       <h1 className="display text-[clamp(34px,5vw,52px)] leading-[1.08] text-ink">Verify your status privately</h1>
       <p className="mt-3 text-[18px] text-ink-2">About 10 minutes. Your tax returns never go to a fund manager&rsquo;s inbox.</p>
 
-      {/* Where this ends up */}
-      <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-3">
-        {(['img05', 'img18', 'img15'] as PhotoKey[]).map((k, i) => (
-          <motion.div key={k} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 * i }} className="aspect-[4/5] overflow-hidden rounded-[6px]">
-            <Photo name={k} sizes="(min-width: 768px) 220px, 33vw" className="size-full" />
-          </motion.div>
-        ))}
-      </div>
-
       {/* The process at a glance */}
       <ol className="mx-auto mt-10 flex max-w-xl items-start justify-between">
         {PROCESS.map((s, i) => (
@@ -53,17 +44,23 @@ export default function GetStarted() {
         ))}
       </ol>
 
-      <h2 className="mt-16 text-[22px] font-semibold text-ink">Who&rsquo;s investing?</h2>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <h2 className="mt-14 text-[22px] font-semibold text-ink">Who&rsquo;s investing?</h2>
+      <div className="mx-auto mt-5 grid max-w-2xl gap-3 sm:grid-cols-3">
         {TYPES.map((t, i) => (
-          <motion.div key={t.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + 0.05 * i }}>
+          <motion.div key={t.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + 0.06 * i }}>
             <Link
               to={`/verify?type=${t.id}`}
-              className="group flex h-full flex-col items-center gap-3 rounded-[6px] border border-line-strong/60 bg-raised px-4 py-7 transition-[border-color,box-shadow] hover:border-accent hover:shadow-[0_0_0_1px_var(--accent)]"
+              className="group relative block aspect-[4/5] overflow-hidden rounded-[6px] outline-offset-4 ring-accent transition-shadow hover:ring-2 focus-visible:ring-2"
             >
-              <t.icon className="size-7 text-accent" strokeWidth={1.5} />
-              <span className="text-[17px] font-semibold text-ink">{t.label}</span>
-              <ArrowRight className="size-4 text-ink-3 transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
+              <Photo name={t.photo} sizes="(min-width: 768px) 220px, (min-width: 640px) 33vw, 100vw" className="size-full transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
+              <span className="absolute inset-0 bg-gradient-to-t from-[#022a21]/85 via-[#022a21]/20 to-transparent" aria-hidden />
+              <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 p-4 text-left text-white">
+                <span className="flex items-center gap-2 text-[17px] font-semibold">
+                  <t.icon className="size-5 shrink-0" strokeWidth={1.75} />
+                  {t.label}
+                </span>
+                <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+              </span>
             </Link>
           </motion.div>
         ))}
