@@ -5,11 +5,15 @@ import type {
   AccountLink,
   ApplicationInput,
   Fund,
+  Investment,
+  IssuerOverview,
   KycSession,
   LicenseType,
   ParsedDocument,
   Passport,
+  Role,
   Share,
+  User,
   Verification,
 } from '../types'
 import { ApiError } from './errors'
@@ -34,6 +38,21 @@ export interface Api {
   listShares(passportId: string): Promise<Share[]>
   sharePassport(passportId: string, fundId: string): Promise<Share>
   revokeShare(passportId: string, shareId: string): Promise<void>
+
+  // Accounts: passwordless email link.
+  /** Sends a sign-in link. The sandbox returns the link token so the demo can follow it without email. */
+  requestSignIn(email: string, role: Role): Promise<{ sent: true; devToken?: string }>
+  completeSignIn(token: string): Promise<User>
+  me(): Promise<User | null>
+  signOut(): Promise<void>
+
+  // Investor dashboard
+  listInvestments(): Promise<Investment[]>
+
+  // Receiving-party (fund) dashboard
+  getIssuerOverview(): Promise<IssuerOverview>
+  /** Re-sends the verification link to an investor who hasn't cleared yet. */
+  nudgeInvestor(investorId: string): Promise<void>
 }
 
 export { ApiError }
@@ -72,6 +91,17 @@ const httpApi: Api = {
   sharePassport: (pid, fundId) => post(`/passports/${pid}/shares`, { fundId }),
   revokeShare: async (pid, sid) => {
     await request(`/passports/${pid}/shares/${sid}`, { method: 'DELETE' })
+  },
+  requestSignIn: (email, role) => post('/auth/link', { email, role }),
+  completeSignIn: (token) => post('/auth/verify', { token }),
+  me: () => request<User | null>('/me').catch((e) => (e instanceof ApiError && e.status === 401 ? null : Promise.reject(e))),
+  signOut: async () => {
+    await post('/auth/signout')
+  },
+  listInvestments: () => request('/me/investments'),
+  getIssuerOverview: () => request('/issuer/overview'),
+  nudgeInvestor: async (id) => {
+    await post(`/issuer/investors/${id}/nudge`)
   },
 }
 

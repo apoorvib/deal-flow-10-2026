@@ -1,35 +1,25 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
-import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
-import { CircleHelp, ShieldCheck, UserRound } from 'lucide-react'
+import { ChevronDown, CircleHelp, LayoutDashboard, LogOut, ShieldCheck, UserRound, WalletCards } from 'lucide-react'
+import { DropdownMenu } from 'radix-ui'
 import logo from './assets/savy-logo.png'
 import { isMock } from './lib/api/client'
 import { BRAND } from './lib/brand'
 import { motionEase } from './lib/format'
-import { getSession } from './lib/session'
+import { RequireRole, homeFor, useAuth } from './lib/auth'
 import Deals from './pages/Deals'
 import FindPassport from './pages/FindPassport'
+import FundDashboard from './pages/FundDashboard'
 import GetStarted from './pages/GetStarted'
+import InvestorDashboard from './pages/InvestorDashboard'
 import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
 import PassportPage from './pages/PassportPage'
+import SignIn from './pages/SignIn'
 import Status from './pages/Status'
 import Verify from './pages/Verify'
-
-function useSession() {
-  const [s, set] = useState(getSession)
-  useEffect(() => {
-    const on = () => set(getSession())
-    window.addEventListener('lp-session', on)
-    window.addEventListener('storage', on)
-    return () => {
-      window.removeEventListener('lp-session', on)
-      window.removeEventListener('storage', on)
-    }
-  }, [])
-  return s
-}
 
 const NAV = [
   { to: '/get-started', label: 'Get verified' },
@@ -47,8 +37,52 @@ function Wordmark({ className }: { className?: string }) {
   )
 }
 
+function AccountMenu() {
+  const { user, signOut } = useAuth()
+  const navigate = useNavigate()
+  if (!user) {
+    return (
+      <Link to="/signin" className="flex items-center gap-1.5 text-[17px] text-ink transition-colors hover:text-accent">
+        <UserRound className="size-[21px]" strokeWidth={1.75} />
+        <span className="hidden sm:inline">Sign in</span>
+      </Link>
+    )
+  }
+  const item = 'flex cursor-pointer items-center gap-2.5 rounded-[4px] px-3 py-2.5 text-[15px] text-ink outline-none data-[highlighted]:bg-surface'
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger className="flex items-center gap-1.5 rounded-[4px] text-[17px] text-ink transition-colors outline-none hover:text-accent">
+        <span className="grid size-8 place-items-center rounded-full bg-accent text-[14px] font-semibold text-on-accent">{user.name[0]}</span>
+        <span className="hidden sm:inline">{user.name.split(' ')[0]}</span>
+        <ChevronDown className="size-4 text-ink-3" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={10} className="z-50 min-w-56 border border-line bg-raised p-1.5 shadow-lift">
+          <DropdownMenu.Label className="px-3 pt-2 pb-2.5">
+            <p className="text-[15px] font-semibold text-ink">{user.name}</p>
+            <p className="text-[13px] text-ink-3">{user.email}</p>
+          </DropdownMenu.Label>
+          <DropdownMenu.Separator className="my-1 h-px bg-line" />
+          <DropdownMenu.Item className={item} onSelect={() => navigate(homeFor(user.role))}>
+            <LayoutDashboard className="size-4 text-ink-3" /> Dashboard
+          </DropdownMenu.Item>
+          {user.role === 'investor' && user.passportId && (
+            <DropdownMenu.Item className={item} onSelect={() => navigate(`/passport/${user.passportId}`)}>
+              <WalletCards className="size-4 text-ink-3" /> My passport
+            </DropdownMenu.Item>
+          )}
+          <DropdownMenu.Separator className="my-1 h-px bg-line" />
+          <DropdownMenu.Item className={item} onSelect={() => signOut().then(() => navigate('/'))}>
+            <LogOut className="size-4 text-ink-3" /> Sign out
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
+
 function Header() {
-  const { passportId } = useSession()
+  const { user } = useAuth()
   return (
     <header className="relative z-30">
       {/* Trust bar */}
@@ -72,13 +106,12 @@ function Header() {
             <Link to="/#how" className="text-ink transition-colors hover:text-accent" aria-label="Help">
               <CircleHelp className="size-[21px]" strokeWidth={1.75} />
             </Link>
-            <Link
-              to={passportId ? `/passport/${passportId}` : '/find'}
-              className="flex items-center gap-1.5 text-[17px] text-ink transition-colors hover:text-accent"
-            >
-              <UserRound className="size-[21px]" strokeWidth={1.75} />
-              <span className="hidden sm:inline">{passportId ? 'My passport' : 'Find passport'}</span>
-            </Link>
+            {user && (
+              <NavLink to={homeFor(user.role)} className="hidden text-[17px] text-ink transition-colors hover:text-accent md:inline">
+                Dashboard
+              </NavLink>
+            )}
+            <AccountMenu />
           </div>
         </div>
       </div>
@@ -87,8 +120,8 @@ function Header() {
 }
 
 const FOOTER_COLS = [
-  { title: 'Investors', links: [['Get verified', '/get-started'], ['Ways to qualify', '/#qualify'], ['Find your passport', '/find']] },
-  { title: 'Funds & GPs', links: [['Accept passports', '/#funds'], ['Verification letters', '/#how'], ['API access', '/#funds']] },
+  { title: 'Investors', links: [['Get verified', '/get-started'], ['Ways to qualify', '/#qualify'], ['Sign in', '/signin'], ['Find your passport', '/find']] },
+  { title: 'Funds & GPs', links: [['Fund dashboard', '/signin?as=issuer'], ['Accept passports', '/#funds'], ['Verification letters', '/#how'], ['API access', '/#funds']] },
   { title: 'Trust', links: [['Privacy & security', '/#privacy'], ['How we verify', '/#how'], ['Rule 506(c) overview', '/#qualify']] },
 ]
 
@@ -153,6 +186,23 @@ export default function App() {
               <Routes location={location}>
                 <Route path="/" element={<Landing />} />
                 <Route path="/get-started" element={<GetStarted />} />
+                <Route path="/signin" element={<SignIn />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <RequireRole role="investor">
+                      <InvestorDashboard />
+                    </RequireRole>
+                  }
+                />
+                <Route
+                  path="/fund"
+                  element={
+                    <RequireRole role="issuer">
+                      <FundDashboard />
+                    </RequireRole>
+                  }
+                />
                 <Route path="/find" element={<FindPassport />} />
                 <Route path="/verify" element={<Verify />} />
                 <Route path="/status/:id" element={<Status />} />

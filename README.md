@@ -31,6 +31,15 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | GET | `/passports/:id/shares` | | `Share[]` |
 | POST | `/passports/:id/shares` | `{ fundId }` | `Share` |
 | DELETE | `/passports/:id/shares/:shareId` | | |
+| POST | `/auth/link` | `{ email, role }` | `{ sent: true }` (emails a sign-in link) |
+| POST | `/auth/verify` | `{ token }` | `User` (sets session cookie) |
+| GET | `/me` | | `User`, or 401 when signed out |
+| POST | `/auth/signout` | | |
+| GET | `/me/investments` | | `Investment[]` |
+| GET | `/issuer/overview` | | `IssuerOverview` (fund, invite link, `IncomingInvestor[]`) |
+| POST | `/issuer/investors/:id/nudge` | | |
+
+`IncomingInvestor` is what a fund sees about an investor: status, basis, dates, letter reference and check outcomes (`pass`/`warn`/`fail`). It must never carry balances, income or net worth.
 
 The backend owns every decision. `src/lib/rules.ts` mirrors the thresholds only to show early hints in forms. The UI never sends figures for a document; it references uploaded documents by id.
 
