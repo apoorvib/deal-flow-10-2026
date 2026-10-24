@@ -6,18 +6,16 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'quiet'
 type Size = 'sm' | 'md' | 'lg'
 
 const variants: Record<Variant, string> = {
-  primary:
-    'bg-accent text-on-accent shadow-[inset_0_1px_0_rgb(255_255_255/0.12),0_1px_2px_rgb(0_0_0/0.18)] hover:bg-accent-2 active:translate-y-px',
-  secondary:
-    'bg-raised text-ink border border-line-strong shadow-[0_1px_0_rgb(0_0_0/0.03)] hover:border-ink-3 active:translate-y-px',
-  ghost: 'text-ink-2 hover:text-ink hover:bg-ink/5',
-  quiet: 'text-ink-2 underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink-3 px-0!',
+  primary: 'bg-accent text-on-accent hover:bg-accent-2 active:bg-accent-2',
+  secondary: 'bg-raised text-accent border border-accent hover:bg-accent/[0.06]',
+  ghost: 'text-link hover:bg-accent/[0.06]',
+  quiet: 'text-link hover:underline underline-offset-4 px-0!',
 }
 
 const sizes: Record<Size, string> = {
-  sm: 'h-8 px-3 text-[13px] gap-1.5 rounded-md',
-  md: 'h-10 px-4 text-sm gap-2 rounded-lg',
-  lg: 'h-12 px-5 text-[15px] gap-2 rounded-lg',
+  sm: 'h-9 px-3.5 text-[15px] gap-1.5 rounded-[4px]',
+  md: 'h-11 px-5 text-[16px] gap-2 rounded-[4px]',
+  lg: 'h-12 px-6 text-[17px] gap-2 rounded-[4px]',
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -35,7 +33,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        'relative inline-flex select-none items-center justify-center font-medium tracking-[-0.005em] whitespace-nowrap transition-[background-color,border-color,color,transform,opacity] duration-150 ease-out disabled:pointer-events-none disabled:opacity-45',
+        'relative inline-flex select-none items-center justify-center font-semibold whitespace-nowrap transition-[background-color,border-color,color,transform,opacity] duration-150 ease-out disabled:pointer-events-none disabled:opacity-45',
         variants[variant],
         sizes[size],
         className,

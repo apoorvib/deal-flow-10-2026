@@ -26,24 +26,24 @@ export function Field({
   const id = htmlFor ?? auto
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="flex items-baseline justify-between text-[13px] font-medium text-ink">
+      <label htmlFor={id} className="flex items-baseline justify-between text-[14px] font-medium text-ink">
         {label}
         {optional && <span className="text-xs font-normal text-ink-3">Optional</span>}
       </label>
       <FieldId.Provider value={id}>{children}</FieldId.Provider>
       {error ? (
-        <p className="text-[12.5px] text-danger" role="alert">
+        <p className="text-[14px] text-danger" role="alert">
           {error}
         </p>
       ) : hint ? (
-        <p className="text-[12.5px] leading-relaxed text-ink-3">{hint}</p>
+        <p className="text-[14px] leading-relaxed text-ink-3">{hint}</p>
       ) : null}
     </div>
   )
 }
 
 const inputBase =
-  'h-11 w-full rounded-lg border border-line-strong bg-raised px-3.5 text-[15px] text-ink placeholder:text-ink-3/70 shadow-[inset_0_1px_1px_rgb(0_0_0/0.03)] transition-[border-color,box-shadow] duration-150 hover:border-ink-3/60 focus:border-accent-2 focus:outline-none focus:ring-4 focus:ring-accent/10 aria-invalid:border-danger aria-invalid:ring-danger/10'
+  'h-11 w-full rounded-lg border border-line-strong bg-raised px-3.5 text-[16px] text-ink placeholder:text-ink-3/70 shadow-[inset_0_1px_1px_rgb(0_0_0/0.03)] transition-[border-color,box-shadow] duration-150 hover:border-ink-3/60 focus:border-accent-2 focus:outline-none focus:ring-4 focus:ring-accent/10 aria-invalid:border-danger aria-invalid:ring-danger/10'
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className, id, ...rest },
@@ -96,12 +96,12 @@ export function MoneyInput({
 
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-[15px] text-ink-3">$</span>
+      <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-[16px] text-ink-3">$</span>
       <input
         id={id ?? fieldId ?? auto}
         inputMode="decimal"
         autoComplete="off"
-        className={cn(inputBase, 'tnum pl-7 font-mono text-[14.5px]')}
+        className={cn(inputBase, 'tnum pl-7 font-mono text-[16px]')}
         placeholder={placeholder}
         value={focused ? text : formatted}
         aria-invalid={invalid || undefined}

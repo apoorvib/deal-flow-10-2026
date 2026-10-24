@@ -28,6 +28,8 @@ export interface Api {
   /** Sandbox only: stands in for the attorney review queue. */
   signOff(id: string): Promise<Verification>
   getPassport(id: string): Promise<{ passport: Passport; active: boolean }>
+  /** Returning-LP lookup by email + letter reference. Resolves null when nothing matches. */
+  findPassport(email: string, letterRef: string): Promise<{ passportId: string } | null>
   listFunds(): Promise<Fund[]>
   listShares(passportId: string): Promise<Share[]>
   sharePassport(passportId: string, fundId: string): Promise<Share>
@@ -64,6 +66,7 @@ const httpApi: Api = {
   getVerification: (id) => request(`/verifications/${id}`),
   signOff: (id) => post(`/verifications/${id}/sign-off`),
   getPassport: (id) => request(`/passports/${id}`),
+  findPassport: (email, letterRef) => post('/passports/lookup', { email, letterRef }),
   listFunds: () => request('/funds'),
   listShares: (pid) => request(`/passports/${pid}/shares`),
   sharePassport: (pid, fundId) => post(`/passports/${pid}/shares`, { fundId }),

@@ -40,7 +40,7 @@ function Stages() {
   return (
     <ul className="mt-8 space-y-3.5">
       {STAGES.map((s, i) => (
-        <li key={s} className="flex items-center gap-3 text-[14px]">
+        <li key={s} className="flex items-center gap-3 text-[15px]">
           <span className="grid size-5 place-items-center">
             {i < stage ? (
               <motion.span initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="grid size-5 place-items-center rounded-full bg-accent text-on-accent">

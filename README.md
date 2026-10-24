@@ -26,6 +26,7 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | POST | `/verifications` | `ApplicationInput` | `Verification` |
 | GET | `/verifications/:id` | | `Verification` |
 | GET | `/passports/:id` | | `{ passport, active }` |
+| POST | `/passports/lookup` | `{ email, letterRef }` | `{ passportId }` or `null` |
 | GET | `/funds` | | `Fund[]` |
 | GET | `/passports/:id/shares` | | `Share[]` |
 | POST | `/passports/:id/shares` | `{ fundId }` | `Share` |

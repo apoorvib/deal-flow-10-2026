@@ -56,7 +56,7 @@ export default function Status() {
 
       <section className="mt-14">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-[15px] font-medium text-ink">Verification checks</h2>
+          <h2 className="text-[16px] font-medium text-ink">Verification checks</h2>
           <span className="font-mono text-[11px] text-ink-3">{v.id}</span>
         </div>
         <ChecksList checks={v.evaluation.checks} className="mt-4" />
@@ -72,14 +72,14 @@ function Approved({ passport }: { passport: Passport | null }) {
         Verified
       </Badge>
       <h1 className="display mt-5 text-[clamp(34px,5vw,52px)] leading-[1.02] text-ink">You&rsquo;re verified.</h1>
-      <p className="mx-auto mt-4 max-w-md text-[15.5px] leading-relaxed text-ink-2">Your passport is ready. Share it with any participating fund for the next 90 days. They&rsquo;ll see your status, never your documents.</p>
+      <p className="mx-auto mt-4 max-w-md text-[17px] leading-relaxed text-ink-2">Your passport is ready. Share it with any participating fund for the next 90 days. They&rsquo;ll see your status, never your documents.</p>
       <div className="mx-auto mt-10 max-w-md">
         {passport ? (
           <motion.div initial={{ opacity: 0, y: 30, rotateX: 18, scale: 0.96 }} animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }} transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.15 }} style={{ transformPerspective: 1200 }}>
             <PassportCard data={{ ...passport, status: 'active' }} />
           </motion.div>
         ) : (
-          <div className="aspect-[1.586/1] animate-pulse rounded-[22px] bg-line" />
+          <div className="aspect-[1.586/1] animate-pulse rounded-[14px] bg-line" />
         )}
       </div>
       {passport && (
@@ -113,7 +113,7 @@ function InReview({ v, onSignOff, signing }: { v: Verification; onSignOff: () =>
         In review
       </Badge>
       <h1 className="display mt-5 text-[clamp(32px,4.6vw,46px)] leading-[1.04] text-ink">With an attorney for review.</h1>
-      <p className="mt-4 max-w-xl text-[15.5px] leading-relaxed text-ink-2">Most of your application passed automatically. A licensed attorney is confirming the items below. We&rsquo;ll email you when your passport is issued, usually within one business day.</p>
+      <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-2">Most of your application passed automatically. A licensed attorney is confirming the items below. We&rsquo;ll email you when your passport is issued, usually within one business day.</p>
 
       <ol className="mt-10">
         {steps.map((s, i) => (
@@ -134,8 +134,8 @@ function InReview({ v, onSignOff, signing }: { v: Verification; onSignOff: () =>
               )}
             </span>
             <div className="pt-0.5">
-              <p className={cn('text-[14.5px]', s.state === 'todo' ? 'text-ink-3' : 'text-ink')}>{s.label}</p>
-              <p className="text-[12.5px] text-ink-3">{s.at}</p>
+              <p className={cn('text-[16px]', s.state === 'todo' ? 'text-ink-3' : 'text-ink')}>{s.label}</p>
+              <p className="text-[14px] text-ink-3">{s.at}</p>
             </div>
           </li>
         ))}
@@ -143,10 +143,10 @@ function InReview({ v, onSignOff, signing }: { v: Verification; onSignOff: () =>
 
       {v.evaluation.reasons.length > 0 && (
         <div className="mt-10 rounded-2xl border border-warn/30 bg-warn-soft/60 p-5">
-          <p className="text-[13px] font-medium text-warn">What the reviewer is checking</p>
+          <p className="text-[14px] font-medium text-warn">What the reviewer is checking</p>
           <ul className="mt-2.5 space-y-1.5">
             {v.evaluation.reasons.map((r) => (
-              <li key={r} className="text-[14px] text-ink-2">
+              <li key={r} className="text-[15px] text-ink-2">
                 {r}
               </li>
             ))}
@@ -177,12 +177,12 @@ function NotYet({ v }: { v: Verification }) {
         {denied ? 'Not verified' : 'Action needed'}
       </Badge>
       <h1 className="display mt-5 text-[clamp(32px,4.6vw,46px)] leading-[1.04] text-ink">{denied ? 'We couldn’t verify you this way.' : 'Almost there. A few things are missing.'}</h1>
-      <p className="mt-4 max-w-xl text-[15.5px] leading-relaxed text-ink-2">
+      <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-2">
         {denied ? 'Based on what you provided, this test isn’t met. You may still qualify another way, for example through net worth or a minimum investment.' : 'Your progress is saved. Fix the items below and resubmit; it only takes a minute.'}
       </p>
       <ul className="mt-8 space-y-2">
         {v.evaluation.reasons.map((r) => (
-          <li key={r} className="flex items-start gap-3 rounded-xl border border-line bg-raised px-4 py-3.5 text-[14px] text-ink">
+          <li key={r} className="flex items-start gap-3 rounded-xl border border-line bg-raised px-4 py-3.5 text-[15px] text-ink">
             <span className={cn('mt-2 size-1.5 shrink-0 rounded-full', denied ? 'bg-danger' : 'bg-brass')} />
             {r}
           </li>

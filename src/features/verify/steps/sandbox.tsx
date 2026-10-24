@@ -14,7 +14,7 @@ export function SandboxPicker<T extends string>({ value, onChange, options, labe
             key={o.id}
             type="button"
             onClick={() => onChange(o.id)}
-            className={cn('rounded-md px-2.5 py-1 text-[12.5px] transition-colors', value === o.id ? 'bg-raised text-ink shadow-sm' : 'text-ink-3 hover:text-ink')}
+            className={cn('rounded-md px-2.5 py-1 text-[14px] transition-colors', value === o.id ? 'bg-raised text-ink shadow-sm' : 'text-ink-3 hover:text-ink')}
           >
             {o.label}
           </button>

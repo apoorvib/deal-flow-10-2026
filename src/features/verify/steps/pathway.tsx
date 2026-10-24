@@ -32,7 +32,7 @@ export function PathwayStep() {
           description={
             <>
               {p.requirement(t)}
-              <span className="mt-1.5 block text-[12.5px] text-ink-3">{p.evidence}</span>
+              <span className="mt-1.5 block text-[14px] text-ink-3">{p.evidence}</span>
             </>
           }
         />
