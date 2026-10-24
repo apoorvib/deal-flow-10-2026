@@ -20,7 +20,10 @@ class Base(BaseModel):
 
 InvestorType = Literal["individual", "joint", "entity"]
 EntityKind = Literal["llc", "corporation", "partnership", "trust"]
-Pathway = Literal["income", "net_worth", "license", "min_investment", "entity_assets"]
+Pathway = Literal[
+    "income", "net_worth", "license", "min_investment", "entity_assets",
+    "all_owners_accredited", "registered_adviser",
+]
 LicenseType = Literal["series7", "series65", "series82"]
 DocType = Literal[
     "w2",
@@ -129,6 +132,15 @@ class EntityAssetsEvidence(Base):
     formed_for_purpose: bool
 
 
+class OwnersEvidence(Base):
+    owner_count: int
+    all_accredited: bool
+
+
+class AdviserEvidence(Base):
+    file_number: str
+
+
 class Attestations(Base):
     accurate: bool
     not_third_party_financed: bool
@@ -150,7 +162,10 @@ class ApplicationInput(Base):
     license: Optional[LicenseEvidence] = None
     min_investment: Optional[MinInvestmentEvidence] = None
     entity_assets: Optional[EntityAssetsEvidence] = None
+    owners: Optional[OwnersEvidence] = None
+    adviser: Optional[AdviserEvidence] = None
     attestations: Attestations
+    invite_token: Optional[str] = None
 
 
 class Check(Base):
@@ -261,6 +276,72 @@ class AdminContext(Base):
     viewing_as: AdminView
     investor: User
     issuer: User
+
+
+class InviteRequest(Base):
+    email: str
+    name: Optional[str] = None
+    commitment: Optional[float] = None
+
+
+class Invite(Base):
+    id: str
+    fund_id: str
+    email: str
+    name: Optional[str] = None
+    commitment: Optional[float] = None
+    status: Literal["sent", "opened", "accepted"]
+    sent_at: str
+
+
+class InviteView(Base):
+    fund: Fund
+    inviter_name: str
+    email: str
+    name: Optional[str] = None
+    has_account: bool
+
+
+class InviteAcceptance(Base):
+    user: User
+    outcome: Literal["shared", "confirm", "verify"]
+    passport_id: Optional[str] = None
+    fund: Fund
+
+
+class UserSettings(Base):
+    name: str
+    email: str
+    notifications: dict[str, bool]
+    auto_share_on_invite: bool
+
+
+class FundingAccount(Base):
+    id: str
+    institution: str
+    name: str
+    last4: str
+    is_default: bool
+    connected_at: str
+
+
+IntegrationId = Literal["carta", "angellist", "affinity", "junipersquare"]
+
+
+class Integration(Base):
+    id: IntegrationId
+    connected: bool
+    connected_at: Optional[str] = None
+    push_cleared: bool
+    import_contacts: bool
+
+
+class QuoteRequest(Base):
+    name: str
+    email: str
+    company: str
+    volume: str
+    notes: Optional[str] = None
 
 
 # --- Request/response shapes not in types.ts but needed by the routes ------

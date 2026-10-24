@@ -10,7 +10,7 @@ import datetime
 import json
 
 from api import debate, store
-from api.adapters import akta, solari
+from api.adapters import akta, sandbox, solari
 from api.adapters.sandbox import new_id
 from api.checks import run_checks
 from api.decide import assert_issue_guardrail, conflict_check, decide, detect_conflict
@@ -41,6 +41,10 @@ def evaluate(inp: ApplicationInput) -> tuple[Evaluation, dict]:
         lic = solari.check_license(inp.license.type, inp.license.crd)
         evidence["license"] = {**lic, "type": inp.license.type}
         trace["license"] = lic
+    if inp.pathway == "registered_adviser" and inp.adviser:
+        found, name = sandbox.check_adviser(inp.adviser.file_number)
+        evidence["adviser"] = {"found": found, "name": name, "file_number": inp.adviser.file_number}
+        trace["adviser"] = evidence["adviser"]
     if inp.investor_type == "entity" and inp.profile.entity_name:
         ent = akta.corroborate_entity(inp.profile.entity_name)
         evidence["entity"] = ent

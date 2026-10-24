@@ -1,5 +1,8 @@
 # Backend Handoff — Savy
 
+The active implementation is complete for the current qualification slice. See
+`IMPLEMENTATION_STATUS.md` for the remaining deployment and provider configuration work.
+
 **Status as of this file: Tasks 1, 2, and 5 are DONE and committed. Start at the fixtures, then Task 6. New requirement: add basic account auth as a parallel workstream; see spec §2 and plan's Parallel Workstream A.**
 
 You are finishing the Python backend for an accredited-investor verification product called Savy. A React frontend is already built and working. Your job is to make the backend real, task by task, from an existing plan.

@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from api import store
-from api.models import Passport, Role
+from api.models import Passport, Role, UserSettings
 
 ROOT = Path(__file__).resolve().parent.parent
 SQLITE_PATH = ROOT / "fixtures" / "live" / "auth.sqlite3"
@@ -223,8 +223,17 @@ def _find_user(db, email: str, role: str | None = None) -> Any:
     return db.execute("SELECT * FROM app_users WHERE email=%s", (email,)).fetchone()
 
 
+def _admin_email_allowed(email: str) -> bool:
+    allowed = [x.strip().lower() for x in os.getenv("ADMIN_EMAILS", "").split(",") if x.strip()]
+    if allowed:
+        return email in allowed
+    return os.getenv("APP_ENV", "development").lower() not in {"production", "prod"}
+
+
 def register(body: RegisterRequest, response: Response) -> AuthUser:
     email = _valid_email(body.email)
+    if body.role == "admin" and not _admin_email_allowed(email):
+        raise HTTPException(403, "This email is not authorized for admin access.")
     name = body.name.strip()
     if not name:
         raise HTTPException(422, "Name is required.")
@@ -254,8 +263,7 @@ def login(body: LoginRequest, response: Response) -> AuthUser:
 
 def request_sign_in(body: SignInLinkRequest) -> dict:
     email = _valid_email(body.email)
-    allowed = [x.strip().lower() for x in os.getenv("ADMIN_EMAILS", "").split(",") if x.strip()]
-    if body.role == "admin" and allowed and email not in allowed:
+    if body.role == "admin" and not _admin_email_allowed(email):
         raise HTTPException(403, "This email is not authorized for admin access.")
     token = secrets.token_urlsafe(32)
     with _connect() as db:
@@ -314,6 +322,75 @@ def _refresh_passport(user: AuthUser) -> AuthUser:
         with _connect() as db:
             db.execute("UPDATE app_users SET passport_id=%s WHERE id=%s", (p.id, user.id))
     return user
+
+
+def refresh_user(user: AuthUser) -> AuthUser:
+    return _refresh_passport(user)
+
+
+DEFAULT_NOTIFICATIONS: dict[str, dict[str, bool]] = {
+    "investor": {"passportExpiry": True, "fundRequests": True, "productUpdates": False},
+    "issuer": {"lpCleared": True, "weeklyDigest": True, "autoNudge": True},
+    "admin": {"productUpdates": False},
+}
+
+
+def get_settings(user: AuthUser) -> UserSettings:
+    saved = store.get_raw("settings", user.id) or {}
+    return UserSettings(
+        name=user.name,
+        email=user.email,
+        notifications={**DEFAULT_NOTIFICATIONS[user.role], **saved.get("notifications", {})},
+        auto_share_on_invite=bool(saved.get("autoShareOnInvite", True)),
+    )
+
+
+def update_settings(user: AuthUser, patch: dict[str, Any]) -> UserSettings:
+    name = patch.get("name")
+    if isinstance(name, str) and name.strip():
+        with _connect() as db:
+            db.execute("UPDATE app_users SET name=%s WHERE id=%s", (name.strip(), user.id))
+        user.name = name.strip()
+    current = get_settings(user)
+    notifications = patch.get("notifications")
+    if not isinstance(notifications, dict):
+        notifications = current.notifications
+    saved = {
+        "notifications": {**current.notifications, **{str(k): bool(v) for k, v in notifications.items()}},
+        "autoShareOnInvite": bool(patch.get("autoShareOnInvite", current.auto_share_on_invite)),
+    }
+    store.put_raw("settings", user.id, saved)
+    return get_settings(user)
+
+
+def change_password(request: Request, current: str, next_password: str) -> None:
+    user = current_user(request)
+    if not current or not next_password:
+        raise HTTPException(400, "Enter both passwords.")
+    if len(next_password) < 10:
+        raise HTTPException(400, "Use at least 10 characters for the new password.")
+    with _connect() as db:
+        row = db.execute("SELECT password_hash FROM app_users WHERE id=%s", (user.id,)).fetchone()
+        if row is None or not verify_password(current, row["password_hash"]):
+            raise HTTPException(400, "Current password is incorrect.")
+        db.execute("UPDATE app_users SET password_hash=%s WHERE id=%s", (hash_password(next_password), user.id))
+
+
+def user_exists(email: str, role: str = "investor") -> bool:
+    with _connect() as db:
+        return _find_user(db, email, role) is not None
+
+
+def ensure_account_session(email: str, role: str, response: Response,
+                           name: str | None = None, fund_id: str | None = None) -> AuthUser:
+    email = _valid_email(email)
+    with _connect() as db:
+        row = _find_user(db, email, role)
+        if row is None:
+            row = _create_user(db, email, role, name, fund_id=fund_id)
+        token = _session_token(db, row["id"])
+    _set_cookie(response, token)
+    return _refresh_passport(_user(row))
 
 
 def current_user(request: Request) -> AuthUser:

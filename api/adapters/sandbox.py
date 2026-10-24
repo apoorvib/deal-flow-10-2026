@@ -65,3 +65,10 @@ def check_license(crd: str) -> tuple[bool, str | None]:
     if crd.startswith("9"):
         return False, None
     return True, "Registered representative"
+
+
+def check_adviser(file_number: str) -> tuple[bool, str | None]:
+    """Deterministic IAPD stand-in until a production adviser connector is selected."""
+    if file_number.strip().startswith("9"):
+        return False, None
+    return True, "Registered investment adviser (SEC)"

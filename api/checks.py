@@ -117,6 +117,22 @@ def run_checks(inp: ApplicationInput, docs: list[ParsedDocument], kyc: KycSessio
                 "Formed for this investment; owners need look-through — Rule 501(a)(3)/(9).")
         else:
             add("pathway", "Entity assets test", "pass", f"{usd(total)} in total assets — Rule 501(a)(3)/(9).")
+    elif pw == "all_owners_accredited":
+        owners = inp.owners
+        if not owners or owners.owner_count < 1 or not owners.all_accredited:
+            add("pathway", "Accredited owners test", "fail",
+                "Every equity owner must be accredited — Rule 501(a)(8).")
+        else:
+            add("pathway", "Accredited owners test", "pass",
+                f"All {owners.owner_count} equity owners are represented as accredited — Rule 501(a)(8).")
+    elif pw == "registered_adviser":
+        adviser = evidence.get("adviser") or {}
+        if adviser.get("found"):
+            add("pathway", "Registered adviser test", "pass",
+                "Adviser registration found on the SEC/IAPD lookup — Rule 501(a)(1).")
+        else:
+            add("pathway", "Registered adviser test", "fail",
+                "No registered or exempt reporting adviser found for that file number — Rule 501(a)(1).")
 
     if t == "entity":
         ent = evidence.get("entity")

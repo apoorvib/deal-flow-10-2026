@@ -1,12 +1,12 @@
-# Savy backend — Task 2: FastAPI skeleton, contract-exact models, all 13 routes.
-#
-# /kyc and /account-links are wired to the sandbox adapter for real. Everything else
-# returns contract-shaped data (static funds, placeholder evaluations/documents) —
-# later tasks replace route *bodies* (AI parsing, Rule 501(a) rules engine, FINRA
-# BrokerCheck automation) without touching these signatures.
+# SAVY backend: contract-exact FastAPI routes for verification, passports, accounts,
+# issuer operations, invitations, integrations, admin showcase, and sales capture.
+# External KYC, funding, adviser, and platform providers remain behind sandbox/state
+# adapters until their production credentials and provider choices are configured.
 
 import datetime
 import os
+import re
+import secrets
 
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
@@ -29,8 +29,15 @@ from api.models import (
     AdminView,
     Evaluation,
     Fund,
+    FundingAccount,
     IncomingCheck,
     IncomingInvestor,
+    Integration,
+    IntegrationId,
+    Invite,
+    InviteAcceptance,
+    InviteRequest,
+    InviteView,
     Investment,
     IssuerOverview,
     KycRequest,
@@ -42,8 +49,10 @@ from api.models import (
     PassportEnvelope,
     PassportLookupRequest,
     PassportLookupResponse,
+    QuoteRequest,
     ShareRequest,
     ShareView,
+    UserSettings,
     User,
     Verification,
 )
@@ -99,9 +108,12 @@ def auth_me(request: Request):
 
 # Wildcard origins are rejected by browsers when credentials are included, and the
 # frontend sends credentials: 'include' on every request (see src/lib/api/client.ts).
+_cors_origins = [origin.strip() for origin in os.getenv(
+    "APP_ORIGINS", "http://localhost:5173"
+).split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -219,6 +231,15 @@ def post_license_check(body: LicenseCheckRequest) -> LicenseCheckResponse:
     return LicenseCheckResponse(found=bool(result.get("found")), name=result.get("name"))
 
 
+@app.post("/advisers/check")
+def post_adviser_check(body: dict) -> dict:
+    file_number = str(body.get("fileNumber") or body.get("file_number") or "").strip()
+    if not file_number:
+        raise HTTPException(422, "An SEC file number or CRD number is required.")
+    found, name = sandbox.check_adviser(file_number)
+    return {"found": found, "name": name}
+
+
 # --- Verifications -----------------------------------------------------------
 
 
@@ -238,6 +259,15 @@ def post_verifications(body: ApplicationInput, request: Request) -> Verification
     auth.own("verification", v.id, user.id)
     if v.passport_id:
         auth.own("passport", v.passport_id, user.id)
+    if body.invite_token and v.passport_id:
+        invite = _find_invite(body.invite_token)
+        if invite and invite.get("email", "").lower() == user.email.lower():
+            fund_id = invite.get("fundId")
+            if fund_id in FUNDS_BY_ID:
+                _share_for_fund(v.passport_id, fund_id, user.id)
+                invite["status"] = "accepted"
+                invite["acceptedAt"] = _now()
+                store.put_raw("invites", invite["id"], invite)
     return v
 
 
@@ -356,6 +386,297 @@ def delete_share(passport_id: str, share_id: str, request: Request):
     store.delete("shares", share_id)
     if owner:
         auth.delete_owner("share", share_id)
+    return None
+
+
+# --- Account settings, funding, invitations, and integrations ----------------
+
+@app.get("/me/settings")
+def get_user_settings(request: Request) -> UserSettings:
+    return auth.get_settings(auth.current_user(request))
+
+
+@app.patch("/me/settings")
+def patch_user_settings(body: dict, request: Request) -> UserSettings:
+    return auth.update_settings(auth.current_user(request), body)
+
+
+@app.post("/me/password", status_code=204)
+def post_change_password(body: dict, request: Request):
+    auth.change_password(request, str(body.get("current") or ""), str(body.get("next") or ""))
+    return None
+
+
+def _funding_rows(user: auth.AuthUser) -> list[FundingAccount]:
+    raw = store.get_raw("funding_accounts", user.id) or {}
+    return [FundingAccount.model_validate(row) for row in raw.get("rows", [])]
+
+
+def _save_funding_rows(user: auth.AuthUser, rows: list[FundingAccount]) -> None:
+    store.put_raw("funding_accounts", user.id, {
+        "rows": [row.model_dump(by_alias=True, mode="json") for row in rows],
+    })
+
+
+@app.get("/me/funding-accounts")
+def get_funding_accounts(request: Request) -> list[FundingAccount]:
+    user = auth.current_user(request)
+    if user.role != "investor":
+        raise HTTPException(403, "Investor access required.")
+    return _funding_rows(user)
+
+
+@app.post("/me/funding-accounts")
+def post_funding_account(body: dict, request: Request) -> FundingAccount:
+    user = auth.current_user(request)
+    if user.role != "investor":
+        raise HTTPException(403, "Investor access required.")
+    institution = str(body.get("institution") or "").strip()
+    if not institution:
+        raise HTTPException(422, "Choose a financial institution.")
+    rows = _funding_rows(user)
+    account = FundingAccount(
+        id=new_id("acct"), institution=institution, name="Checking",
+        last4=f"{secrets.randbelow(10000):04d}", is_default=not rows, connected_at=_now(),
+    )
+    rows.append(account)
+    _save_funding_rows(user, rows)
+    return account
+
+
+@app.delete("/me/funding-accounts/{account_id}", status_code=204)
+def delete_funding_account(account_id: str, request: Request):
+    user = auth.current_user(request)
+    if user.role != "investor":
+        raise HTTPException(403, "Investor access required.")
+    rows = _funding_rows(user)
+    remaining = [row for row in rows if row.id != account_id]
+    if len(remaining) == len(rows):
+        raise HTTPException(404, "Funding account not found.")
+    if remaining and not any(row.is_default for row in remaining):
+        remaining[0].is_default = True
+    _save_funding_rows(user, remaining)
+    return None
+
+
+@app.post("/me/investments/{investment_id}/fund")
+def post_fund_investment(investment_id: str, body: dict, request: Request) -> Investment:
+    user = auth.current_user(request)
+    if user.role != "investor":
+        raise HTTPException(403, "Investor access required.")
+    account_id = str(body.get("accountId") or body.get("account_id") or "")
+    if not any(account.id == account_id for account in _funding_rows(user)):
+        raise HTTPException(404, "Funding account not found.")
+    rows = _seed_investments(user)
+    investment = next((row for row in rows if row.id == investment_id), None)
+    if investment is None:
+        raise HTTPException(404, "Investment not found.")
+    if investment.status != "committed":
+        raise HTTPException(409, "Only committed investments can be funded.")
+    investment.status = "funded"
+    store.put_raw("investments", user.id, {
+        "rows": [row.model_dump(by_alias=True, mode="json") for row in rows],
+    })
+    return investment
+
+
+INTEGRATION_IDS: tuple[IntegrationId, ...] = ("carta", "angellist", "affinity", "junipersquare")
+
+
+def _integration_rows(user: auth.AuthUser) -> list[Integration]:
+    saved = store.get_raw("integrations", user.id) or {}
+    by_id = {row.get("id"): row for row in saved.get("rows", [])}
+    return [Integration.model_validate({
+        "id": integration_id,
+        "connected": False,
+        "connectedAt": None,
+        "pushCleared": False,
+        "importContacts": False,
+        **by_id.get(integration_id, {}),
+    }) for integration_id in INTEGRATION_IDS]
+
+
+def _save_integration_rows(user: auth.AuthUser, rows: list[Integration]) -> None:
+    store.put_raw("integrations", user.id, {
+        "rows": [row.model_dump(by_alias=True, mode="json") for row in rows],
+    })
+
+
+def _issuer(request: Request) -> auth.AuthUser:
+    user = auth.current_user(request)
+    if user.role != "issuer":
+        raise HTTPException(403, "Issuer access required.")
+    return user
+
+
+def _integration(integration_id: str) -> IntegrationId:
+    if integration_id not in INTEGRATION_IDS:
+        raise HTTPException(404, "Integration not found.")
+    return integration_id  # type: ignore[return-value]
+
+
+@app.get("/issuer/integrations")
+def get_integrations(request: Request) -> list[Integration]:
+    return _integration_rows(_issuer(request))
+
+
+@app.post("/issuer/integrations/{integration_id}/connect")
+def connect_integration(integration_id: str, request: Request) -> Integration:
+    user = _issuer(request)
+    integration_id = _integration(integration_id)
+    rows = _integration_rows(user)
+    item = next(row for row in rows if row.id == integration_id)
+    item.connected = True
+    item.connected_at = _now()
+    item.push_cleared = True
+    _save_integration_rows(user, rows)
+    return item
+
+
+@app.post("/issuer/integrations/{integration_id}/disconnect")
+def disconnect_integration(integration_id: str, request: Request) -> Integration:
+    user = _issuer(request)
+    integration_id = _integration(integration_id)
+    rows = _integration_rows(user)
+    item = next(row for row in rows if row.id == integration_id)
+    item.connected = False
+    item.connected_at = None
+    item.push_cleared = False
+    item.import_contacts = False
+    _save_integration_rows(user, rows)
+    return item
+
+
+@app.patch("/issuer/integrations/{integration_id}")
+def patch_integration(integration_id: str, body: dict, request: Request) -> Integration:
+    user = _issuer(request)
+    integration_id = _integration(integration_id)
+    rows = _integration_rows(user)
+    item = next(row for row in rows if row.id == integration_id)
+    if "pushCleared" in body:
+        item.push_cleared = bool(body["pushCleared"])
+    if "importContacts" in body:
+        item.import_contacts = bool(body["importContacts"])
+    _save_integration_rows(user, rows)
+    return item
+
+
+def _find_invite(token: str) -> dict | None:
+    for invite in store.all_raw("invites").values():
+        if invite.get("token") == token:
+            return invite
+    return None
+
+
+def _share_for_fund(passport_id: str, fund_id: str, user_id: str) -> ShareModel:
+    for share in store.all_of("shares", ShareModel):
+        if share.passport_id == passport_id and share.fund_id == fund_id:
+            return share
+    fund = FUNDS_BY_ID.get(fund_id)
+    if fund is None:
+        raise HTTPException(404, "Fund not found.")
+    now = _now()
+    share = ShareModel(
+        id=new_id("shr"), passport_id=passport_id, fund_id=fund_id, created_at=now,
+        views=[ShareView(at=now, by=f"{fund.manager} compliance")],
+    )
+    store.put("shares", share.id, share)
+    auth.own("share", share.id, user_id)
+    return share
+
+
+def _invited_investor_rows(fund_id: str) -> list[IncomingInvestor]:
+    rows = []
+    for invite in store.all_raw("invites").values():
+        if invite.get("fundId") != fund_id or invite.get("status") == "accepted":
+            continue
+        email = str(invite.get("email") or "").strip().lower()
+        if not email:
+            continue
+        rows.append(IncomingInvestor(
+            id=f"invite_{invite['id']}", name=invite.get("name") or email, email=email,
+            investor_type="individual", status="invited", pathway=None, verified_at=None,
+            expires_at=None, letter_ref=None, commitment=float(invite.get("commitment") or 0),
+            last_activity_at=invite.get("openedAt") or invite.get("sentAt") or _now(), checks=[],
+        ))
+    return rows
+
+
+@app.post("/issuer/invites")
+def post_invites(body: dict, request: Request) -> dict:
+    user = _issuer(request)
+    fund_id = user.fund_id or "fund_meridian"
+    raw_rows = body.get("invites")
+    if not isinstance(raw_rows, list) or not raw_rows:
+        raise HTTPException(422, "Add at least one investor email.")
+    origin = request.headers.get("origin") or os.getenv("APP_ORIGIN", "http://localhost:5173")
+    invites: list[Invite] = []
+    dev_links: dict[str, str] = {}
+    for raw in raw_rows:
+        item = InviteRequest.model_validate(raw)
+        email = item.email.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise HTTPException(422, f"Invalid investor email: {item.email}")
+        invite = Invite(
+            id=new_id("invite"), fund_id=fund_id, email=email, name=item.name,
+            commitment=item.commitment, status="sent", sent_at=_now(),
+        )
+        token = secrets.token_urlsafe(24)
+        store.put_raw("invites", invite.id, {
+            **invite.model_dump(by_alias=True, mode="json"), "token": token,
+        })
+        invites.append(invite)
+        dev_links[email] = f"{origin.rstrip('/')}/invite/{token}"
+    return {"invites": invites, "devLinks": dev_links}
+
+
+@app.get("/invites/{token}")
+def get_invite(token: str) -> InviteView:
+    invite = _find_invite(token)
+    if invite is None:
+        raise HTTPException(404, "Invitation not found.")
+    fund = FUNDS_BY_ID.get(invite.get("fundId"))
+    if fund is None:
+        raise HTTPException(404, "Fund not found.")
+    if invite.get("status") == "sent":
+        invite["status"] = "opened"
+        invite["openedAt"] = _now()
+        store.put_raw("invites", invite["id"], invite)
+    return InviteView(
+        fund=fund, inviter_name=fund.manager, email=invite["email"],
+        name=invite.get("name"), has_account=auth.user_exists(invite["email"], "investor"),
+    )
+
+
+@app.post("/invites/{token}/accept")
+def accept_invite(token: str, request: Request, response: Response) -> InviteAcceptance:
+    invite = _find_invite(token)
+    if invite is None:
+        raise HTTPException(404, "Invitation not found.")
+    fund = FUNDS_BY_ID.get(invite.get("fundId"))
+    if fund is None:
+        raise HTTPException(404, "Fund not found.")
+    user = auth.ensure_account_session(invite["email"], "investor", response, invite.get("name"))
+    passport_id = user.passport_id
+    if passport_id:
+        passport = store.get("passports", passport_id, Passport)
+        active = passport and datetime.datetime.fromisoformat(passport.expires_at) > datetime.datetime.now(datetime.timezone.utc)
+        if active and auth.get_settings(user).auto_share_on_invite:
+            _share_for_fund(passport_id, fund.id, user.id)
+            invite["status"] = "accepted"
+            invite["acceptedAt"] = _now()
+            store.put_raw("invites", invite["id"], invite)
+            return InviteAcceptance(user=_wire_user(user), outcome="shared", passport_id=passport_id, fund=fund)
+        if active:
+            return InviteAcceptance(user=_wire_user(user), outcome="confirm", passport_id=passport_id, fund=fund)
+    return InviteAcceptance(user=_wire_user(user), outcome="verify", passport_id=None, fund=fund)
+
+
+@app.post("/sales/quote", status_code=204)
+def post_sales_quote(body: QuoteRequest):
+    store.put_raw("quotes", new_id("quote"), {
+        "receivedAt": _now(), **body.model_dump(by_alias=True, mode="json"),
+    })
     return None
 
 
@@ -513,10 +834,12 @@ def get_issuer_overview(request: Request) -> IssuerOverview:
         raise HTTPException(403, "Issuer access required.")
     fund = FUNDS_BY_ID[user.fund_id or "fund_meridian"]
     investors = {row.email.lower(): row for row in _seed_investor_rows()}
+    investors.update({row.email.lower(): row for row in _invited_investor_rows(fund.id)})
     investors.update({row.email.lower(): row for row in _shared_investor_rows(fund.id)})
+    origin = request.headers.get("origin") or os.getenv("APP_ORIGIN", "http://localhost:5173")
     return IssuerOverview(
         fund=fund,
-        invite_url="http://localhost:5173/get-started?fund=%s" % fund.id,
+        invite_url=f"{origin.rstrip('/')}/get-started?fund={fund.id}",
         investors=sorted(investors.values(), key=lambda row: row.last_activity_at, reverse=True),
     )
 
@@ -579,7 +902,8 @@ def admin_create_case(body: dict, request: Request) -> Verification:
 def admin_reset(request: Request) -> AdminContext:
     auth.admin_user(request)
     for collection in ("docs", "doc_reviews", "verifications", "passports", "kyc",
-                       "links", "shares", "traces", "audit_log", "investments", "nudges"):
+                       "links", "shares", "traces", "audit_log", "investments", "nudges",
+                       "funding_accounts", "integrations", "invites", "quotes", "settings"):
         store.wipe(collection)
     token_hash, _, _ = auth._session_parts(request)
     with auth._connect() as db:

@@ -23,6 +23,7 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | POST | `/account-links` | `{}` | `AccountLink` |
 | POST | `/documents` | multipart `file` | `ParsedDocument` |
 | POST | `/licenses/check` | `{ type, crd }` | `{ found, name }` |
+| POST | `/advisers/check` | `{ fileNumber }` | `{ found, name }` |
 | POST | `/verifications` | `ApplicationInput` | `Verification` |
 | GET | `/verifications/:id` | | `Verification` |
 | GET | `/passports/:id` | | `{ passport, active }` |
@@ -32,6 +33,7 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | POST | `/passports/:id/shares` | `{ fundId }` | `Share` |
 | DELETE | `/passports/:id/shares/:shareId` | | |
 | POST | `/auth/login` | `{ email, password, role }` | `User` (sets session cookie; email is confirmed during onboarding) |
+| POST | `/auth/register` | `{ name, email, password, role }` | `User` (sets session cookie) |
 | GET | `/me` | | `User`, or 401 when signed out |
 | POST | `/auth/signout` | | |
 | GET | `/me/investments` | | `Investment[]` |
@@ -57,6 +59,11 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | POST | `/admin/reset` | | `AdminContext` |
 
 `IncomingInvestor` is what a fund sees about an investor: status, basis, dates, letter reference and check outcomes (`pass`/`warn`/`fail`). It must never carry balances, income or net worth.
+
+The backend routes are implemented in `api/main.py`. KYC, account linking, adviser lookup,
+funding account linking, and platform integrations currently use deterministic sandbox/state
+adapters. Move `DEMO_MODE=live`, provide production provider credentials, set `APP_ORIGIN`,
+`APP_ORIGINS`, `COOKIE_SECURE=1`, and deploy the API behind HTTPS before accepting real traffic.
 
 Authentication uses Supabase PostgreSQL. Install backend packages from `requirements.txt`, configure the server-only `DATABASE_URL` in `.env` (never a `VITE_` variable), set `COOKIE_SECURE=1` behind HTTPS, apply `api/migrations/001_auth.sql`, and run FastAPI. Use the URI from Supabase Connect → Direct → Session pooler. The backend requires SSL. Marketplace listing does not host the DB. Password reset, email verification, and MFA are not in this MVP.
 
