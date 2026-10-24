@@ -265,4 +265,26 @@ Four of five SDKs have never been run by this team. Each gets a timebox and a pr
 
 ---
 
+## 10. Security Posture — Read This Before Deploying Anything
+
+**This build has no authentication, and that is deliberate.** It is a localhost demo with synthetic data, judged in a single evening. The frontend contract in `src/lib/api/client.ts` has no auth concept at all, and it exposes `signOff` as an explicit sandbox control. Adding auth tonight would mean diverging from the contract the backend exists to satisfy.
+
+**It is therefore unsafe to deploy as-is.** An automated security review flagged both of these, correctly:
+
+| Hole | Consequence if deployed |
+|---|---|
+| `GET /passports/{id}` has no ownership check | Anyone holding or guessing a passport id reads an investor's verification checks — an IDOR over financial data |
+| `POST /verifications/{id}/sign-off` is unauthenticated | Anyone can approve any verification and mint a valid 90-day passport |
+| `POST /passports/lookup` is unthrottled | Email + `letterRef` is brute-forceable |
+
+**Before this touches a real investor's data, all of the following are prerequisites, not enhancements:** session or bearer auth; an owning user bound to each passport at issuance with an ownership check on every passport-scoped route; a `reviewer` role gating sign-off; rate limiting on lookup; and (per `plan.md` §6) SOC 2 Type II, FCRA consent handling for any credit data, and GLBA obligations.
+
+### The one carve-out we *do* fix tonight
+
+An approval that issues a passport **with no recorded reviewer identity** is not merely a security gap — it is a defect in the product's own argument. §1 says the audit trail *is* the product, and §11 of `plan.md` rests on a documented process. "A human signed off" is worthless to an issuer who cannot say *which* human.
+
+So sign-off records the reviewer's identity and timestamp in the **server-side audit record and the PRISM `issue` span**. `Verification.reviewedBy` is deliberately **not** added — that would diverge from `src/lib/types.ts`, which is the binding contract. This is the same pattern used for the adjudicator's recommendation (§4.1): facts the frontend does not need live server-side, never on the wire.
+
+---
+
 *Not legal advice. Thresholds and citations follow `plan.md`; confirm with securities counsel before any real use.*
