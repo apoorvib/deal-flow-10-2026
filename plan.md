@@ -264,6 +264,20 @@ Sell once to software that many funds already use; embed via API/widget.
 
 ---
 
+## 15. Hackathon Build Architecture (Resource Mapping)
+
+Goal for the build: a working demo of the §4 architecture (rules engine → AI layer → human sign-off) that also uses every sponsor resource for a real reason, not a bolt-on.
+
+| Tool | Role in the product | Scope / limits | Ties to |
+|---|---|---|---|
+| **Nicrron API** (Path B, raw API — not the Ninoo Builder) | AI layer: parse uploaded docs (tax returns, bank/brokerage statements, K-1s) into structured fields, classify LP type, score confidence, draft the accreditation letter + audit memo | Core AI work; swap models per task (fast/cheap for triage, stronger model for parsing + drafting) | §4 AI layer |
+| **PRISM** (Block Convey) | Trace every rules-engine decision and AI call; encode a compliance rule via MCP (e.g. "never auto-approve without 2 years of income docs") and show v1 breaking it, v2 not | This *is* the product's real value — logged, explainable "reasonable steps" | §11 liability protection, §7 step 4 |
+| **Roundtable** | Orchestrate the pipeline as agents handing off a case: intake → parse → fraud/triage → letter-drafting → human-review inbox, with the LP's file versioned in the shared workspace as it moves | Pipeline/orchestration layer, not a data source | §4 case tiering (70–85% auto / 10–20% AI+sign-off / 5–10% human), §7 steps 6–7 |
+| **akta.pro** (Wokelo AI) | Company/org-level sanity check on entity LPs only: pull firmographics, headcount, funding, news signals to confirm an entity LP (e.g. a holding company) is a real operating business — a weak corroborating signal, flag if it looks like a shell | **Confirmed scope-limited**: company/org data only (firmographics, headcount, traffic, funding, news, job posts). No individual/people data — cannot verify identity, KYC, net worth, income, or accreditation status of anyone. Not a verification source, just a secondary sanity check feeding into human review | §9 entity LPs, §14 entity-data row (sits alongside Middesk/OpenCorporates, doesn't replace them) |
+| **Solari** (Pinetree Research) | Computer-use agent to look up professional licenses (Series 7/65/82) on FINRA BrokerCheck, which has no usable public API | Fills the one explicit API gap in §14 | §1 professional-license test, §14 FINRA row |
+
+**Demo narrative:** LP uploads docs → Roundtable agents parse (Nicrron) and triage → clean case auto-approved, letter generated, decision + rule-compliance logged in PRISM → messy case flagged for human review; if the LP is an entity, akta.pro firmographic/news signals are pulled as a secondary check; if a license claim is involved, Solari checks FINRA BrokerCheck → every step's audit trail in PRISM is the actual pitch (liability protection, not just automation).
+
 ## Sources
 
 - [SyndicationPro — How to Verify an Investor's Accreditation](https://help.sponsorcloud.io/synpro/how-to-verify-an-investors-accreditation-in-syndicationpro) — 24–48 business hour turnaround; $500 setup + $59/letter
