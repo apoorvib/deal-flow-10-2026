@@ -1,5 +1,4 @@
-import { motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring, useTransform } from 'motion/react'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { cn } from '../lib/cn'
 import { shortDate } from '../lib/format'
 import { INVESTOR_TYPE_LABEL, PATHWAY_LABEL, type InvestorType, type Pathway } from '../lib/types'
@@ -39,67 +38,136 @@ function mrz(name: string, ref: string) {
   return [l1, l2]
 }
 
-export function PassportCard({ data, interactive = true, className }: { data: PassportCardData; interactive?: boolean; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const reduce = useReducedMotion()
-  const mx = useMotionValue(0.5)
-  const my = useMotionValue(0.5)
-  const sx = useSpring(mx, { stiffness: 160, damping: 22 })
-  const sy = useSpring(my, { stiffness: 160, damping: 22 })
-  const rotY = useTransform(sx, [0, 1], [-7, 7])
-  const rotX = useTransform(sy, [0, 1], [5, -5])
-  const glareX = useTransform(sx, [0, 1], ['10%', '90%'])
-  const glareY = useTransform(sy, [0, 1], ['0%', '100%'])
-  const glare = useMotionTemplate`radial-gradient(120% 80% at ${glareX} ${glareY}, rgb(255 255 255 / 0.13), transparent 55%)`
+// 3D build, after the Align identity card (align-calendar/src/views/identityCard.js):
+// - the STAGE owns `perspective`; the CARD keeps `preserve-3d` and must not clip (overflow:hidden on it
+//   flattens the stack), so clipping lives on the face layer instead
+// - layers ride translateZ so the tilt has something to parallax: edge slab < foil rim < face < content < sheen
+// - one rAF driver writes --rx/--ry (rotation) and --gx/--gy (where the light sits). A CSS keyframe idle
+//   would outrank inline rotation while it runs, so the idle sway is computed in the same loop instead.
+const SWAY_MS = 7000
+const SWAY_X = 2.2
+const SWAY_Y = 3
+const POINTER_MAX = 8
 
+function useCardTilt(interactive: boolean) {
+  const stage = useRef<HTMLDivElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const pointer = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const el = card.current
+    if (!el) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) return
+    let raf = 0
+    let visible = true
+    const now = { x: 0, y: 0 }
+    const t0 = performance.now()
+    const frame = (t: number) => {
+      const phase = ((t - t0) / SWAY_MS) * Math.PI * 2
+      const target = pointer.current
+        ? { x: pointer.current.y * -POINTER_MAX, y: pointer.current.x * POINTER_MAX }
+        : { x: SWAY_X * Math.cos(phase), y: SWAY_Y * Math.sin(phase) }
+      const k = pointer.current ? 0.14 : 0.06
+      now.x += (target.x - now.x) * k
+      now.y += (target.y - now.y) * k
+      el.style.setProperty('--rx', `${now.x.toFixed(2)}deg`)
+      el.style.setProperty('--ry', `${now.y.toFixed(2)}deg`)
+      el.style.setProperty('--gx', `${(50 + now.y * 2.2).toFixed(1)}%`)
+      el.style.setProperty('--gy', `${(40 - now.x * 2.2).toFixed(1)}%`)
+      if (visible) raf = requestAnimationFrame(frame)
+    }
+    // Don't spend frames on a card nobody can see.
+    const io = new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting
+      cancelAnimationFrame(raf)
+      if (visible) raf = requestAnimationFrame(frame)
+    })
+    io.observe(el)
+    return () => {
+      io.disconnect()
+      cancelAnimationFrame(raf)
+    }
+  }, [])
+
+  const handlers = interactive
+    ? {
+        onPointerMove: (e: React.PointerEvent) => {
+          const b = stage.current?.getBoundingClientRect()
+          if (!b) return
+          pointer.current = { x: (e.clientX - b.left) / b.width - 0.5, y: (e.clientY - b.top) / b.height - 0.5 }
+        },
+        onPointerLeave: () => {
+          pointer.current = null
+        },
+      }
+    : {}
+  return { stage, card, handlers }
+}
+
+const z = (n: number): React.CSSProperties => ({ transform: `translateZ(${n}px)` })
+
+/** Gold foil, matched to the seal: light pools where --gx/--gy put it, falling off to antique gold. */
+const FOIL =
+  'radial-gradient(circle at var(--gx, 50%) var(--gy, 40%), #fff6dc 0%, #f1dfb5 14%, #d9b97c 32%, #b8935b 55%, #8c6c3d 78%, #5e4625 100%)'
+
+/** Rim foil: two gold glints on a conic sweep whose start angle follows the tilt, so they travel around the edge. */
+const RIM =
+  'conic-gradient(from calc(var(--ry, 0deg) * 7 + var(--rx, 0deg) * 4 + 210deg), #5e4625 0%, #a8834c 6%, #f1dfb5 10%, #fff6dc 11.5%, #d9b97c 14%, #7a5c32 24%, #5e4625 38%, #9a7843 50%, #e8d19f 57%, #fff6dc 59%, #c9a468 63%, #6d522c 74%, #5e4625 100%)'
+
+export function PassportCard({ data, interactive = true, className }: { data: PassportCardData; interactive?: boolean; className?: string }) {
+  const { stage, card, handlers } = useCardTilt(interactive)
   const patterns = useMemo(
     () => [guilloche(150, 42, 70, 470, 120), guilloche(130, 36, 58, 470, 120), guilloche(96, 30, 40, 470, 120)],
     [],
   )
   const [l1, l2] = mrz(data.holderName || 'Investor', data.letterRef)
-  const tilt = interactive && !reduce
 
   return (
-    <div className={cn('text-left [perspective:1400px]', className)}>
-      <motion.div
-        ref={ref}
-        onPointerMove={(e) => {
-          if (!tilt || !ref.current) return
-          const b = ref.current.getBoundingClientRect()
-          mx.set((e.clientX - b.left) / b.width)
-          my.set((e.clientY - b.top) / b.height)
-        }}
-        onPointerLeave={() => {
-          mx.set(0.5)
-          my.set(0.5)
-        }}
-        style={tilt ? { rotateX: rotX, rotateY: rotY, transformStyle: 'preserve-3d' } : undefined}
-        className="relative aspect-[1.586/1] w-full overflow-hidden rounded-[14px] bg-[#04493a] text-[#efe9dc] shadow-[0_1px_0_rgb(255_255_255/0.08)_inset,0_30px_60px_-24px_rgb(2_30_24/0.5),0_12px_24px_-12px_rgb(2_30_24/0.3)] select-none"
+    <div ref={stage} {...handlers} className={cn('relative text-left select-none [perspective:1100px]', className)}>
+      {/* Ground shadow: stays on the table while the card tilts above it. */}
+      <div className="pointer-events-none absolute inset-x-[8%] -bottom-[6%] h-[18%] rounded-[50%] bg-[#022a21]/35 blur-2xl" aria-hidden />
+
+      <div
+        ref={card}
+        className="relative aspect-[1.586/1] w-full rounded-[14px] text-[#efe9dc]"
+        style={{ transformStyle: 'preserve-3d', transform: 'rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))' }}
       >
-        {/* Base tone and vignette */}
-        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_20%,#0b6a52_0%,#04493a_50%,#022a21_100%)]" />
+        {/* Edge slab: stacked foil sheets behind the face give the card a visible, shiny thickness when it turns. */}
+        {[5, 4, 3, 2, 1].map((d) => (
+          <div key={d} className="absolute inset-0 rounded-[14px]" style={{ background: FOIL, filter: `brightness(${1 - d * 0.07})`, ...z(-d) }} aria-hidden />
+        ))}
 
-        {/* Guilloche */}
-        <svg viewBox="0 0 600 378" className="absolute inset-0 size-full" preserveAspectRatio="xMidYMid slice" aria-hidden>
-          <g fill="none" stroke="#d8c39a" strokeWidth="0.45">
-            <path d={patterns[0]} opacity="0.16" />
-            <path d={patterns[1]} opacity="0.14" />
-            <path d={patterns[2]} opacity="0.2" />
-          </g>
-          <g stroke="#d8c39a" strokeWidth="0.4" opacity="0.1">
-            {Array.from({ length: 48 }, (_, i) => (
-              <line key={i} x1={-40 + i * 14} y1={378} x2={60 + i * 14} y2={0} />
-            ))}
-          </g>
-        </svg>
+        {/* Foil rim: a sheet poking 3px past the face. Glints travel round it as the card turns. */}
+        <div
+          className="absolute -inset-[3px] rounded-[17px]"
+          style={{ background: RIM, boxShadow: '0 0 16px rgb(217 185 124 / 0.4), 0 28px 50px -24px rgb(2 30 24 / 0.55)', ...z(0) }}
+          aria-hidden
+        />
 
-        {/* Pointer glare */}
-        {tilt && <motion.div className="pointer-events-none absolute inset-0 mix-blend-soft-light" style={{ background: glare }} />}
+        {/* Face: card stock, vignette and guilloche. Clipping lives here, not on the 3D parent. */}
+        <div className="absolute inset-0 overflow-hidden rounded-[14px] shadow-[inset_0_0_0_1px_rgb(241_223_181/0.3)]" style={z(1)}>
+          <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_20%,#0b6a52_0%,#04493a_50%,#022a21_100%)]" />
+          <svg viewBox="0 0 600 378" className="absolute inset-0 size-full" preserveAspectRatio="xMidYMid slice" aria-hidden>
+            <g fill="none" stroke="#d8c39a" strokeWidth="0.45">
+              <path d={patterns[0]} opacity="0.16" />
+              <path d={patterns[1]} opacity="0.14" />
+              <path d={patterns[2]} opacity="0.2" />
+            </g>
+            <g stroke="#d8c39a" strokeWidth="0.4" opacity="0.1">
+              {Array.from({ length: 48 }, (_, i) => (
+                <line key={i} x1={-40 + i * 14} y1={378} x2={60 + i * 14} y2={0} />
+              ))}
+            </g>
+          </svg>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_95%_80%_at_50%_40%,transparent_55%,rgb(0_0_0/0.35)_100%)]" />
+        </div>
 
-        <div className="relative flex h-full flex-col justify-between p-[6%]">
+        {/* Content sits flush with the stock: one rigid plate, no layers sliding against each other. */}
+        <div className="absolute inset-0 flex flex-col justify-between p-[6%]" style={z(2)}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="font-sans font-semibold text-[clamp(8px,1.5vw,11px)] tracking-[0.2em] text-[#d8c39a]/80 uppercase">{BRAND.name}</div>
+              <div className="font-sans text-[clamp(8px,1.5vw,11px)] font-semibold tracking-[0.2em] text-[#d8c39a]/80 uppercase">{BRAND.name}</div>
               <div className="display mt-1 text-[clamp(17px,3.4vw,25px)] leading-none">Accredited Investor</div>
             </div>
             <FoilSeal />
@@ -123,7 +191,19 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
             <div className="truncate">{l2}</div>
           </div>
         </div>
-      </motion.div>
+
+        {/* Gloss, always the top layer: a soft pool and a broad band that drift only slightly, like light on a rigid plate. */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[14px]" style={z(3)} aria-hidden>
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at var(--gx, 50%) var(--gy, 40%), rgb(241 223 181 / 0.14), rgb(217 185 124 / 0.04) 40%, transparent 65%)' }} />
+          <div
+            className="absolute -inset-1/2 mix-blend-screen"
+            style={{
+              background: 'linear-gradient(115deg, transparent 30%, rgb(232 209 159 / 0.12) 46%, rgb(241 223 181 / 0.18) 50%, rgb(232 209 159 / 0.12) 54%, transparent 70%)',
+              transform: 'translateX(calc((var(--gx, 50%) - 50%) * 0.7))',
+            }}
+          />
+        </div>
+      </div>
     </div>
   )
 }

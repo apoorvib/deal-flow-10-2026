@@ -198,3 +198,60 @@ export const INVESTOR_TYPE_LABEL: Record<InvestorType, string> = {
   joint: 'Joint with spouse',
   entity: 'Entity or trust',
 }
+
+// --- Accounts & dashboards ------------------------------------------------------------------
+
+export type Role = 'investor' | 'issuer'
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: Role
+  /** Investors: their current passport, if verified. */
+  passportId: string | null
+  /** Issuers: the fund they manage. */
+  fundId: string | null
+}
+
+export type InvestmentStatus = 'committed' | 'funded' | 'closed'
+
+/** An investor's commitment to a fund. Amounts are the investor's own data, shown only to them and that fund. */
+export interface Investment {
+  id: string
+  fundId: string
+  fundName: string
+  manager: string
+  amount: number
+  status: InvestmentStatus
+  committedAt: string
+}
+
+export type IncomingStatus = 'verified' | 'review' | 'needs_info' | 'expired' | 'invited'
+
+/**
+ * What a fund sees about an investor who shared a passport (or was invited).
+ * Status and check outcomes only: never balances, income or net worth.
+ */
+export interface IncomingInvestor {
+  id: string
+  name: string
+  email: string
+  investorType: InvestorType
+  status: IncomingStatus
+  pathway: Pathway | null
+  verifiedAt: string | null
+  expiresAt: string | null
+  letterRef: string | null
+  /** Commitment to this fund. */
+  commitment: number
+  lastActivityAt: string
+  /** Check labels and outcomes, with financial detail stripped. */
+  checks: { id: string; label: string; result: CheckResult }[]
+}
+
+export interface IssuerOverview {
+  fund: Fund
+  inviteUrl: string
+  investors: IncomingInvestor[]
+}

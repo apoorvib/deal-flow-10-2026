@@ -8,12 +8,19 @@ import type {
   Check,
   Decision,
   Fund,
+  IncomingInvestor,
+  InvestorType,
+  Investment,
   KycSession,
   ParsedDocument,
   Passport,
+  Pathway,
+  Role,
   Share,
+  User,
   Verification,
 } from '../types'
+import { getSession } from '../session'
 import type { AccountScenario, Api, KycScenario } from './client'
 import { ApiError } from './errors'
 
@@ -26,9 +33,17 @@ interface Db {
   verifications: Record<string, Verification>
   passports: Record<string, Passport>
   shares: Record<string, Share>
+  users: Record<string, User>
+  /** Pending sign-in links: token -> { email, role }. */
+  signInLinks: Record<string, { email: string; role: Role }>
+  currentUserId: string | null
+  /** Seeded commitments per investor user. */
+  investments: Record<string, Investment[]>
+  /** Fund-side pipeline overrides (nudges), keyed by investor id. */
+  nudged: Record<string, string>
 }
 
-const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {} })
+const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, signInLinks: {}, currentUserId: null, investments: {}, nudged: {} })
 
 function load(): Db {
   try {
@@ -182,6 +197,143 @@ const must = <T>(v: T | undefined, what: string): T => {
   return v
 }
 
+
+// --- Accounts & dashboards (sandbox) --------------------------------------------------------
+
+const ISSUER_FUND_ID = 'fund_meridian'
+
+const titleCase = (email: string) =>
+  email
+    .split('@')[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ') || 'Investor'
+
+/** Investors are linked to the passport issued to their email, falling back to this browser's latest one. */
+function passportFor(email: string): string | null {
+  const own = Object.values(db.passports)
+    .filter((p) => db.verifications[p.verificationId]?.input.profile.email.toLowerCase() === email.toLowerCase())
+    .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))[0]
+  return own?.id ?? getSession().passportId
+}
+
+/** Attach the investor's passport and use the verified legal name once there is one. */
+function linkPassport(user: User) {
+  user.passportId = passportFor(user.email)
+  const p = user.passportId ? db.passports[user.passportId] : null
+  if (p && p.investorType !== 'entity') user.name = p.holderName
+}
+
+function seedInvestments(userId: string): Investment[] {
+  const day = 86_400_000
+  const ago = (d: number) => new Date(Date.now() - d * day).toISOString()
+  const pick = (id: string) => FUNDS.find((f) => f.id === id)!
+  const rows: [string, number, Investment['status'], number][] = [
+    ['fund_meridian', 100_000, 'committed', 3],
+    ['fund_halcyon', 25_000, 'funded', 21],
+    ['fund_northbeam', 15_000, 'closed', 64],
+  ]
+  return rows.map(([fid, amount, status, d], i) => ({
+    id: `inv_${userId.slice(-6)}_${i}`,
+    fundId: fid,
+    fundName: pick(fid).name,
+    manager: pick(fid).manager,
+    amount,
+    status,
+    committedAt: ago(d),
+  }))
+}
+
+const SEED_LPS: [string, InvestorType, IncomingInvestor['status'], Pathway | null, number, number][] = [
+  ['Priya Raman', 'individual', 'verified', 'net_worth', 250_000, 2],
+  ['Marcus Hale', 'joint', 'verified', 'income', 100_000, 5],
+  ['Okafor Family Trust', 'entity', 'review', 'entity_assets', 500_000, 0],
+  ['Dana Whitfield', 'individual', 'verified', 'license', 50_000, 9],
+  ['Lin Wei', 'individual', 'needs_info', 'income', 75_000, 1],
+  ['Rosen Capital LLC', 'entity', 'verified', 'min_investment', 1_000_000, 12],
+  ['Tomás Ibarra', 'individual', 'invited', null, 50_000, 4],
+  ['Hannah Cole', 'individual', 'expired', 'net_worth', 100_000, 96],
+  ['Sam Ortiz', 'joint', 'review', 'net_worth', 150_000, 0],
+  ['Grace Park', 'individual', 'verified', 'min_investment', 200_000, 15],
+  ['Elliot Brandt', 'individual', 'invited', null, 25_000, 2],
+]
+
+const CHECK_LABELS: Record<Pathway, string> = {
+  net_worth: 'Net worth test',
+  income: 'Income test',
+  license: 'License test',
+  min_investment: 'Minimum investment',
+  entity_assets: 'Entity assets test',
+}
+
+function seededInvestor([name, investorType, status, pathway, commitment, daysAgo]: (typeof SEED_LPS)[number], i: number): IncomingInvestor {
+  const day = 86_400_000
+  const verifiedAt = pathway && status !== 'invited' ? new Date(Date.now() - daysAgo * day).toISOString() : null
+  const expiresAt = verifiedAt ? new Date(new Date(verifiedAt).getTime() + THRESHOLDS.passportValidityDays * day).toISOString() : null
+  const pending = status === 'review' || status === 'needs_info'
+  const checks: IncomingInvestor['checks'] =
+    status === 'invited'
+      ? []
+      : [
+          { id: 'identity', label: 'Identity verified', result: 'pass' },
+          { id: 'sanctions', label: 'Sanctions and PEP screen', result: 'pass' },
+          { id: 'pathway', label: CHECK_LABELS[pathway!], result: pending ? 'warn' : 'pass' },
+          ...(investorType === 'entity' ? [{ id: 'lookthrough', label: 'Entity look-through', result: status === 'review' ? ('warn' as const) : ('pass' as const) }] : []),
+          { id: 'attest', label: 'Signed attestations', result: status === 'needs_info' ? 'fail' : 'pass' },
+        ]
+  const id = `lp_seed_${i}`
+  return {
+    id,
+    name,
+    email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@probe.invalid`,
+    investorType,
+    status,
+    pathway,
+    verifiedAt: status === 'verified' || status === 'expired' ? verifiedAt : null,
+    expiresAt: status === 'verified' || status === 'expired' ? expiresAt : null,
+    letterRef: status === 'verified' || status === 'expired' ? `AIV-2026-${(0x3a7f1 + i * 7919).toString(36).toUpperCase().slice(-6)}` : null,
+    commitment,
+    lastActivityAt: db.nudged[id] ?? new Date(Date.now() - Math.min(daysAgo, 3) * day - i * 3_600_000).toISOString(),
+    checks,
+  }
+}
+
+/** Real passports shared with the sandbox fund show up in its pipeline, stripped to status and outcomes. */
+function sharedInvestors(): IncomingInvestor[] {
+  return Object.values(db.shares)
+    .filter((sh) => sh.fundId === ISSUER_FUND_ID)
+    .map((sh): IncomingInvestor | null => {
+      const p = db.passports[sh.passportId]
+      if (!p) return null
+      const v = db.verifications[p.verificationId]
+      const active = new Date(p.expiresAt) > new Date()
+      return {
+        id: `lp_${sh.id}`,
+        name: p.holderName,
+        email: v?.input.profile.email ?? '',
+        investorType: p.investorType,
+        status: active ? 'verified' : 'expired',
+        pathway: p.pathway,
+        verifiedAt: p.issuedAt,
+        expiresAt: p.expiresAt,
+        letterRef: p.letterRef,
+        commitment: commitmentTo(v?.input.profile.email ?? '', ISSUER_FUND_ID) ?? v?.input.minInvestment?.commitment ?? 0,
+        lastActivityAt: sh.createdAt,
+        checks: p.checks.map((c) => ({ id: c.id, label: c.label, result: c.result })),
+      }
+    })
+    .filter((x): x is IncomingInvestor => x !== null)
+    // One row per investor: their most recent passport.
+    .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
+    .filter((x, i, all) => all.findIndex((y) => y.email.toLowerCase() === x.email.toLowerCase()) === i)
+}
+
+function commitmentTo(email: string, fundId: string): number | null {
+  const user = Object.values(db.users).find((u) => u.role === 'investor' && u.email === email.toLowerCase())
+  return (user && db.investments[user.id]?.find((i) => i.fundId === fundId)?.amount) ?? null
+}
+
 const rawApi: Api = {
   async startKyc(legalName: string, scenario: KycScenario = 'clean') {
     await wait(2400)
@@ -278,6 +430,68 @@ const rawApi: Api = {
     const s = must(db.shares[sid], 'Share')
     if (s.passportId !== pid) throw new ApiError(404, 'Share not found')
     delete db.shares[sid]
+    save()
+  },
+  async requestSignIn(email, role) {
+    await wait(700)
+    const token = id('tok')
+    db.signInLinks[token] = { email: email.trim().toLowerCase(), role }
+    save()
+    return { sent: true, devToken: token }
+  },
+  async completeSignIn(token) {
+    await wait(600)
+    const link = must(db.signInLinks[token], 'Sign-in link')
+    delete db.signInLinks[token]
+    let user = Object.values(db.users).find((u) => u.email === link.email && u.role === link.role)
+    if (!user) {
+      user = {
+        id: id('usr'),
+        name: link.role === 'issuer' ? 'Meridian Partners' : titleCase(link.email),
+        email: link.email,
+        role: link.role,
+        passportId: null,
+        fundId: link.role === 'issuer' ? ISSUER_FUND_ID : null,
+      }
+      db.users[user.id] = user
+    }
+    if (user.role === 'investor') linkPassport(user)
+    db.currentUserId = user.id
+    save()
+    return user
+  },
+  async me() {
+    await wait(150)
+    const user = db.currentUserId ? db.users[db.currentUserId] : null
+    if (user?.role === 'investor') {
+      // Pick up a passport issued after sign-in.
+      linkPassport(user)
+      save()
+    }
+    return user ?? null
+  },
+  async signOut() {
+    await wait(200)
+    db.currentUserId = null
+    save()
+  },
+  async listInvestments() {
+    await wait(350)
+    const user = must(db.currentUserId ? db.users[db.currentUserId] : undefined, 'Signed-in user')
+    if (!user.passportId) return []
+    db.investments[user.id] ??= seedInvestments(user.id)
+    save()
+    return db.investments[user.id]
+  },
+  async getIssuerOverview() {
+    await wait(400)
+    const fund = FUNDS.find((f) => f.id === ISSUER_FUND_ID)!
+    const investors = [...sharedInvestors(), ...SEED_LPS.map(seededInvestor)].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
+    return { fund, inviteUrl: `${location.origin}/get-started?fund=${fund.id}`, investors }
+  },
+  async nudgeInvestor(investorId) {
+    await wait(500)
+    db.nudged[investorId] = new Date().toISOString()
     save()
   },
 }

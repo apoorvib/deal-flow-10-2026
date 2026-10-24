@@ -8,6 +8,7 @@ import { clearDraft, DraftProvider, minutesLeft, STEPS, stepBlocker, toApplicati
 import { STEP_CONTENT } from '../features/verify/steps'
 import { SubmitOverlay } from '../features/verify/SubmitOverlay'
 import { api } from '../lib/api/client'
+import { useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import { setSession } from '../lib/session'
 
@@ -21,6 +22,7 @@ export default function Verify() {
 
 function Wizard() {
   const { draft, dispatch } = useDraft()
+  const { refresh } = useAuth()
   const navigate = useNavigate()
   const index = STEPS.findIndex((s) => s.id === draft.step)
   const step = STEPS[index]
@@ -66,6 +68,7 @@ function Wizard() {
     try {
       const v = await api.submitVerification(toApplication(draft))
       setSession({ verificationId: v.id, ...(v.passportId ? { passportId: v.passportId } : {}) })
+      if (v.passportId) refresh()
       // Keep the draft when the LP has to fix something; clear it once the case is out of their hands.
       if (v.evaluation.decision === 'approved' || v.evaluation.decision === 'review') {
         clearDraft()

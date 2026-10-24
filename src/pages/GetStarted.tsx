@@ -1,6 +1,8 @@
 import { ArrowRight, BadgeCheck, Building2, FileCheck2, Fingerprint, User, UserRound, Users } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
+import { Photo } from '../components/Photo'
+import type { PhotoKey } from '../lib/photos'
 import type { InvestorType } from '../lib/types'
 
 const TYPES: { id: InvestorType; label: string; icon: typeof User }[] = [
@@ -21,6 +23,15 @@ export default function GetStarted() {
     <div className="mx-auto max-w-[760px] px-5 pt-14 pb-6 text-center sm:px-8 sm:pt-20">
       <h1 className="display text-[clamp(34px,5vw,52px)] leading-[1.08] text-ink">Verify your status privately</h1>
       <p className="mt-3 text-[18px] text-ink-2">About 10 minutes. Your tax returns never go to a fund manager&rsquo;s inbox.</p>
+
+      {/* Where this ends up */}
+      <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-3">
+        {(['img05', 'img18', 'img15'] as PhotoKey[]).map((k, i) => (
+          <motion.div key={k} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 * i }} className="aspect-[4/5] overflow-hidden rounded-[6px]">
+            <Photo name={k} sizes="(min-width: 768px) 220px, 33vw" className="size-full" />
+          </motion.div>
+        ))}
+      </div>
 
       {/* The process at a glance */}
       <ol className="mx-auto mt-10 flex max-w-xl items-start justify-between">

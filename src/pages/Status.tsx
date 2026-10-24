@@ -8,6 +8,7 @@ import { PassportCard } from '../components/PassportCard'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/misc'
 import { api, isMock } from '../lib/api/client'
+import { useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import { dateTime } from '../lib/format'
 import { setSession } from '../lib/session'
@@ -19,6 +20,7 @@ export default function Status() {
   const [v, setV] = useState<Verification | null>(null)
   const [passport, setPassport] = useState<Passport | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { user, refresh } = useAuth()
 
   useEffect(() => {
     api.getVerification(id).then(setV, (e) => setError(e.message))
@@ -34,7 +36,10 @@ export default function Status() {
     if (decision !== 'review') return
     const finish = (nv: Verification) => {
       if (nv.evaluation.decision === 'review') return
-      if (nv.passportId) setSession({ passportId: nv.passportId })
+      if (nv.passportId) {
+        setSession({ passportId: nv.passportId })
+        refresh()
+      }
       setV(nv)
       if (nv.evaluation.decision === 'approved') toast.success('You\u2019re verified', { description: 'Your passport is ready.' })
     }
@@ -45,7 +50,7 @@ export default function Status() {
     }
     const poll = setInterval(() => api.getVerification(id).then(finish, () => {}), 10_000)
     return () => clearInterval(poll)
-  }, [decision, id])
+  }, [decision, id, refresh])
 
   if (error) return <Missing message={error} />
   if (!v) return <PageSkeleton />
@@ -56,7 +61,7 @@ export default function Status() {
     <div className="mx-auto max-w-3xl px-5 pt-12 pb-10 sm:px-8 sm:pt-16">
       <AnimatePresence mode="wait">
         <motion.div key={d} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
-          {d === 'approved' ? <Approved passport={passport} /> : d === 'review' ? <InReview v={v} /> : <NotYet v={v} />}
+          {d === 'approved' ? <Approved passport={passport} signedIn={!!user} /> : d === 'review' ? <InReview v={v} /> : <NotYet v={v} />}
         </motion.div>
       </AnimatePresence>
 
@@ -71,7 +76,7 @@ export default function Status() {
   )
 }
 
-function Approved({ passport }: { passport: Passport | null }) {
+function Approved({ passport, signedIn }: { passport: Passport | null; signedIn: boolean }) {
   return (
     <div className="text-center">
       <Badge tone="ok" dot>
@@ -99,6 +104,9 @@ function Approved({ passport }: { passport: Passport | null }) {
             <Button size="lg" variant="secondary">
               Share with a fund
             </Button>
+          </Link>
+          <Link to={signedIn ? '/dashboard' : '/signin?as=investor&next=/dashboard'} className="link basis-full text-center text-[16px] font-semibold">
+            {signedIn ? 'Go to your dashboard' : 'Sign in to track your investments'}
           </Link>
         </div>
       )}
