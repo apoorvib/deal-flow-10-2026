@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from api.models import DocType
+from api.tracing import span
 
 # Load secrets from the repo-root .env regardless of the process's cwd.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -132,18 +133,21 @@ def complete_json(
         {"role": "user", "content": user_content},
     ]
 
-    # --- PRISM span attaches here (later task): the span should wrap this
-    # call and record `model_name` and `usage` (captured just below) as
-    # attributes, without needing this function restructured.
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=0,
-    )
-    model_name = response.model  # noqa: F841 -- captured for the future span.
-    usage = response.usage  # noqa: F841 -- captured for the future span.
-
-    text = response.choices[0].message.content or ""
+    with span("nicrron.chat", model=model, input_messages=messages) as trace:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0,
+        )
+        model_name = response.model or model
+        usage = response.usage
+        text = response.choices[0].message.content or ""
+        trace.set(
+            model=model_name,
+            output_message=text,
+            token_count_input=getattr(usage, "prompt_tokens", 0) if usage else 0,
+            token_count_output=getattr(usage, "completion_tokens", 0) if usage else 0,
+        )
     return _coerce_json(text)
 
 

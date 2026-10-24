@@ -7,6 +7,7 @@ The AI never writes `decision` (A1). Passports are only issued through
 from __future__ import annotations
 
 import datetime
+import json
 
 from api import debate, store
 from api.adapters import akta, solari
@@ -15,6 +16,7 @@ from api.checks import run_checks
 from api.decide import assert_issue_guardrail, conflict_check, decide, detect_conflict
 from api.models import (AccountLink, ApplicationInput, Check, Evaluation, KycSession, ParsedDocument,
                         Passport, Verification)
+from api.tracing import evaluate_guardrail, span
 
 PASSPORT_DAYS = 90
 
@@ -78,12 +80,34 @@ def evaluate(inp: ApplicationInput) -> tuple[Evaluation, dict]:
     rec = case.get("recommendation")
     if detect_conflict(rec, checks):
         checks.insert(-1, conflict_check(rec, checks))
-    ev = decide(checks, inp.pathway)
+    with span("verification.decision", model="rule-engine", input_text=json.dumps({
+        "pathway": inp.pathway,
+        "checks": [c.model_dump() for c in checks],
+    })) as trace_span:
+        ev = decide(checks, inp.pathway)
+        trace_span.set(output_message=json.dumps({"decision": ev.decision,
+                                                   "reasons": ev.reasons}))
     return ev, trace
 
 
 def issue_passport(v: Verification) -> Passport:
-    assert_issue_guardrail(v)
+    with span("verification.issue", model="rule-engine", input_text=json.dumps({
+        "verification_id": v.id,
+        "decision": v.evaluation.decision,
+        "checks": [c.model_dump() for c in v.evaluation.checks],
+    })) as trace_span:
+        assert_issue_guardrail(v)
+        blocked = evaluate_guardrail(
+            trace_span.trace_id,
+            [{"role": "user", "content": json.dumps({
+                "event": "issue_passport",
+                "verification_id": v.id,
+                "checks": [c.model_dump() for c in v.evaluation.checks],
+            })}],
+        )
+        if blocked is True:
+            raise RuntimeError("PRISM guardrail blocked passport issuance")
+        trace_span.set(output_message=json.dumps({"issued": True, "verification_id": v.id}))
     t = datetime.datetime.now(datetime.timezone.utc)
     holder = (v.input.profile.entity_name or v.input.profile.legal_name) if v.input.investor_type == "entity" \
         else v.input.profile.legal_name
@@ -106,10 +130,14 @@ def submit(inp: ApplicationInput) -> Verification:
 
 
 def sign_off(v: Verification, actor: str) -> Verification:
-    before = v.evaluation.decision
-    v.evaluation = Evaluation(decision="approved", checks=v.evaluation.checks, reasons=[])
-    v.reviewed_at = now()
-    issue_passport(v)
+    with span("verification.sign_off", model="human-review", input_text=json.dumps({
+        "verification_id": v.id, "actor": actor,
+    })) as trace_span:
+        before = v.evaluation.decision
+        v.evaluation = Evaluation(decision="approved", checks=v.evaluation.checks, reasons=[])
+        v.reviewed_at = now()
+        issue_passport(v)
+        trace_span.set(output_message=json.dumps({"decision_before": before, "decision_after": "approved"}))
     store.put("verifications", v.id, v)
     store.put_raw("audit_log", new_id("audit"), {"verificationId": v.id, "action": "sign_off", "at": v.reviewed_at,
                                                  "decisionBefore": before, "decisionAfter": "approved", "actor": actor})

@@ -11,12 +11,18 @@ Updated 2026-10-24 after taking over the in-progress Ninoo work.
 - Added dashboard and admin routes required by src/lib/api/client.ts, including persona switching, seeded demo cases, reset, investor investments, issuer overview, and nudges.
 - Added scripts/seed_demo.py and seeded fixtures/cache/debates/ for all seven synthetic document fixtures. Run python scripts/seed_demo.py after changing fixture bytes.
 - Updated api/migrations/001_auth.sql for admin roles, sign-in links, and admin session views.
+- Added PRISM HTTP tracing with local JSONL fallback, including the passport-issuance guardrail call.
+- Added Roundtable/local debate venues; every thread, round message, and version is written locally before an optional remote mirror.
+- Added live akta.pro company search, enrichment, and negative-news corroboration with fixture fallback.
+- Added Solari evidence metadata and traced BrokerCheck lookups with screenshot/source fallback fields.
 
 ## Verification performed
 
 - python -m compileall -q api scripts
 - FastAPI import smoke check: app loaded with 31 routes.
 - git diff --check
+
+- Syntax/import checks were repeated after the live integration wiring; no unit tests were written or run.
 
 No unit tests were written or run.
 

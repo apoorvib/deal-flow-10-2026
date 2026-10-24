@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi import status
 
-from api import auth, store
+from api import auth, store, tracing
 from api import debate
 from api import ingest
 from api.adapters import sandbox
@@ -55,6 +55,7 @@ app = FastAPI(title="Savy")
 @app.on_event("startup")
 def startup_auth_db():
     auth.init_db()
+    tracing.init_tracing()
 
 
 @app.post("/auth/register")

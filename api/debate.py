@@ -23,6 +23,7 @@ from pathlib import Path
 from api.models import ParsedDocument
 from api.nicrron import (ADJUDICATOR_MODEL, CHALLENGER_MODEL, EXTRACTOR_MODEL, VISION_ENABLED,
                          classify, complete_json)
+from api.venue import get_venue
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "fixtures" / "cache" / "debates"
@@ -169,16 +170,23 @@ def _doc_block(text: str, filename: str, doc_type: str) -> str:
     return f"Filename: {filename}\nDocument type: {doc_type}\n\nDocument text (may be empty if image only):\n{text or '(see image)'}"
 
 
-def run_debate(text: str, filename: str, doc_type: str, image_b64: str | None = None) -> tuple[dict, list[DebateTurn]]:
+def run_debate(text: str, filename: str, doc_type: str, image_b64: str | None = None,
+               thread_id: str | None = None) -> tuple[dict, list[DebateTurn]]:
     """The 4 rounds. Returns (adjudication dict, turns). May raise; caller degrades."""
     doc = _doc_block(text, filename, doc_type)
     turns: list[DebateTurn] = []
+    venue = get_venue()
+    thread_id = thread_id or venue.open_thread("document", filename, {"doc_type": doc_type})
 
     def call(rnd, actor, model, system, user):
         t0 = time.monotonic()
-        # PRISM span: debate.round{rnd} (actor, model, seconds, output) attaches here.
         out = complete_json(model, system, user, image_b64=image_b64)
         turns.append(DebateTurn(rnd, actor, model, out, round(time.monotonic() - t0, 2)))
+        try:
+            venue.post_message(thread_id, f"{actor} ({model})", out,
+                               {"round": rnd, "seconds": turns[-1].seconds})
+        except Exception:  # noqa: BLE001
+            pass
         return out
 
     r1 = call(1, "extractor", EXTRACTOR_MODEL, _EXTRACT_SYS + _SPECIMEN_NOTE, doc)
@@ -206,6 +214,10 @@ def run_debate(text: str, filename: str, doc_type: str, image_b64: str | None = 
               f"Challenges:\n{json.dumps(challenges, indent=2)}\n\nResponses:\n{json.dumps(r3, indent=2)}")
     if not r4.get("fields"):
         r4["fields"] = fields
+    try:
+        venue.version(thread_id, "adjudicated", {"adjudication": r4, "turns": [asdict(t) for t in turns]})
+    except Exception:  # noqa: BLE001
+        pass
     return r4, turns
 
 
@@ -241,12 +253,19 @@ def parse_upload(data: bytes, text: str, filename: str, doc_id: str,
     key = sha256(data)
     review = DocReview(doc_id=doc_id, sha256=key)
     t0 = time.monotonic()
+    venue = get_venue()
+    thread_id = venue.open_thread("document", filename, {"doc_id": doc_id})
 
     cached = _cache_get(key)
     if cached:
         doc = _assemble(cached["adjudication"], doc_id, filename, cached["docType"])
         review.turns, review.cache_hit = cached.get("turns", []), True
         review.trust_assessment = cached["adjudication"].get("trustAssessment", "")
+        try:
+            venue.version(thread_id, "cached", {"docType": cached["docType"], "turns": review.turns,
+                                                 "adjudication": cached["adjudication"]})
+        except Exception:  # noqa: BLE001
+            pass
         return doc, review
 
     if demo_mode() == "cached":
@@ -260,7 +279,7 @@ def parse_upload(data: bytes, text: str, filename: str, doc_id: str,
         return degraded(doc_id, filename, f"classification failed ({type(e).__name__})"), review
 
     try:
-        adj, turns = run_debate(text, filename, doc_type, image_b64)
+        adj, turns = run_debate(text, filename, doc_type, image_b64, thread_id)
         doc = _assemble(adj, doc_id, filename, doc_type)
     except Exception as e:  # noqa: BLE001
         review.degraded = True
@@ -291,11 +310,21 @@ def review_case(docs: list[ParsedDocument], pathway: str, investor_type: str, se
         return {**empty, "rationale": "Offline mode and no cached case review."}
     try:
         # PRISM span: debate.case_review attaches here.
+        venue = get_venue()
+        thread_id = venue.open_thread("case", f"{investor_type}:{pathway}",
+                                      {"pathway": pathway, "investor_type": investor_type})
+        venue.post_message(thread_id, f"challenger ({CHALLENGER_MODEL})", payload,
+                           {"stage": "case_review_input"})
         out = complete_json(CHALLENGER_MODEL, _CASE_SYS + _SPECIMEN_NOTE, payload)
         res = {"crossDocumentIssues": [str(x) for x in (out.get("crossDocumentIssues") or [])],
                "recommendation": out.get("recommendation") if out.get("recommendation") in ("APPROVE", "DENY", "INSUFFICIENT") else "INSUFFICIENT",
                "rationale": str(out.get("rationale", "")), "model": CHALLENGER_MODEL}
     except Exception as e:  # noqa: BLE001
         return {**empty, "rationale": f"Case review failed ({type(e).__name__})."}
+    try:
+        venue.version(thread_id, "case_review", res)
+        res["venue_thread_id"] = thread_id
+    except Exception:  # noqa: BLE001
+        pass
     _cache_put(key, res)
     return {**res, "cache_hit": False, "degraded": False}

@@ -15,11 +15,16 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+from api.tracing import span
+
 ROOT = Path(__file__).resolve().parents[2]
 CACHE = ROOT / "fixtures" / "cache" / "licenses.json"
 SHOTS = ROOT / "fixtures" / "cache" / "screenshots"
 SCRIPT = ROOT / "scripts" / "solari" / "lookup.mjs"
 TIMEOUT_S = 45
+load_dotenv(ROOT / ".env")
 
 
 def _now() -> str:
@@ -47,7 +52,9 @@ def _from_cache(crd: str, why: str) -> dict:
     data = _cache()
     entry = data.get(crd) or {**data.get("default", {"found": True, "name": "Registered representative",
                                                       "licenses": []}), "crd": crd}
-    return {**entry, "cache_hit": True, "cache_reason": why}
+    return {**entry, "crd": crd, "cache_hit": True, "cache_reason": why,
+            "checked_at": entry.get("checked_at") or _now(),
+            "screenshot_url": entry.get("screenshot_url") or entry.get("screenshot_path")}
 
 
 def _live(crd: str) -> dict:
@@ -71,6 +78,7 @@ def _live(crd: str) -> dict:
         "licenses": out.get("licenses") or [],
         "source_url": out.get("sourceUrl"),
         "screenshot_path": str(shot.relative_to(ROOT)) if shot.exists() else None,
+        "screenshot_url": str(shot.relative_to(ROOT)).replace("\\", "/") if shot.exists() else None,
         "checked_at": _now(),
         "seconds": out.get("seconds"),
     }
@@ -81,16 +89,20 @@ def check_license(license_type: str | None, crd: str) -> dict:
     crd = (crd or "").strip()
     if not crd or crd.startswith("9"):
         return {"crd": crd, "found": False, "name": None, "licenses": [], "cache_hit": False,
-                "checked_at": _now(), "source_url": None, "screenshot_path": None}
+                "checked_at": _now(), "source_url": None, "screenshot_path": None,
+                "screenshot_url": None}
     if os.getenv("DEMO_MODE", "cached") != "live":
         return _from_cache(crd, "DEMO_MODE=cached")
     try:
-        res = _live(crd)
+        with span("solari.brokercheck", model="solari.browser", input_text=crd) as trace:
+            res = _live(crd)
+            want = (license_type or "").replace("series", "Series ")
+            if res["found"] and want and res["licenses"] and want not in res["licenses"]:
+                res["found"] = False
+                res["mismatch"] = f"BrokerCheck shows {', '.join(res['licenses'])}, not {want}"
+            trace.set(output_message=json.dumps({"found": res["found"], "licenses": res["licenses"]}),
+                      metadata={"source_url": res.get("source_url"), "screenshot_url": res.get("screenshot_url")})
+        _save_cache(crd, res)
+        return {**res, "cache_hit": False}
     except Exception as e:  # noqa: BLE001 -- the demo must never break on the browser
         return _from_cache(crd, f"live lookup failed ({type(e).__name__})")
-    want = (license_type or "").replace("series", "Series ")
-    if res["found"] and want and res["licenses"] and want not in res["licenses"]:
-        res["found"] = False
-        res["mismatch"] = f"BrokerCheck shows {', '.join(res['licenses'])}, not {want}"
-    _save_cache(crd, res)
-    return {**res, "cache_hit": False}
