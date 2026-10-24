@@ -119,7 +119,7 @@ function InReview({ v }: { v: Verification }) {
         Under review
       </Badge>
       <h1 className="display mt-5 text-[clamp(32px,4.6vw,46px)] leading-[1.04] text-ink">Under review</h1>
-      <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-2">Almost done. You don&rsquo;t need to do anything. This page updates, and we&rsquo;ll email you, the moment your passport is ready.</p>
+      <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-2">Almost done, usually within a few hours. You don&rsquo;t need to do anything. This page updates, and we&rsquo;ll email you, the moment your passport is ready.</p>
 
       <ol className="mt-10">
         {steps.map((s, i) => (
