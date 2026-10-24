@@ -1,4 +1,5 @@
-import { Bell, KeyRound, Lock, UserRound } from 'lucide-react'
+import { Bell, KeyRound, Lock, Plug, UserRound } from 'lucide-react'
+import { IntegrationsManager } from '../features/fund/Integrations'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -94,6 +95,14 @@ export default function Settings() {
                 ))}
               </ul>
             </Section>
+
+            {user.role === 'issuer' && (
+              <div id="integrations" className="scroll-mt-6">
+                <Section icon={<Plug className="size-5" />} title="Integrations">
+                  <IntegrationsManager />
+                </Section>
+              </div>
+            )}
 
             {user.role === 'investor' && (
               <Section icon={<Lock className="size-5" />} title="Privacy">

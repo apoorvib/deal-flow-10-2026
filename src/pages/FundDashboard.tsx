@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { InviteDialog } from '../features/fund/InviteDialog'
+import { IntegrationsRow } from '../features/fund/Integrations'
 import { Badge } from '../components/ui/misc'
 import { api } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
@@ -120,6 +121,7 @@ export default function FundDashboard() {
         </section>
 
         <FundPassport fund={data.fund} />
+        <IntegrationsRow />
 
         {pending.length > 0 && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border border-warn/30 bg-warn-soft px-5 py-3.5">

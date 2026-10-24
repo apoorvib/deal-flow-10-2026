@@ -8,7 +8,10 @@ import type {
   Check,
   Decision,
   Fund,
+  FundingAccount,
   IncomingInvestor,
+  Integration,
+  IntegrationId,
   InvestorType,
   Invite,
   Investment,
@@ -49,9 +52,11 @@ interface Db {
   invites: Record<string, Invite>
   /** Per-user settings (never passwords). */
   settings: Record<string, Omit<UserSettings, 'name' | 'email'>>
+  fundingAccounts: Record<string, FundingAccount[]>
+  integrations: Record<string, Integration[]>
 }
 
-const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin', invites: {}, settings: {} })
+const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin', invites: {}, settings: {}, fundingAccounts: {}, integrations: {} })
 
 function load(): Db {
   try {
@@ -456,6 +461,22 @@ function settingsFor(user: User): UserSettings {
   }
 }
 
+const INTEGRATION_IDS: IntegrationId[] = ['carta', 'angellist', 'affinity', 'junipersquare']
+
+function integrationsFor(user: User): Integration[] {
+  if (user.role !== 'issuer') throw new ApiError(403, 'Only fund accounts have platform integrations.')
+  const saved = (db.integrations[user.id] ??= [])
+  return INTEGRATION_IDS.map((iid) => saved.find((x) => x.id === iid) ?? { id: iid, connected: false, connectedAt: null, pushCleared: false, importContacts: false })
+}
+
+function patchIntegration(iid: IntegrationId, patch: Partial<Integration>): Integration {
+  const user = currentUser()
+  const next = { ...integrationsFor(user).find((x) => x.id === iid)!, ...patch }
+  db.integrations[user.id] = [...integrationsFor(user).filter((x) => x.id !== iid), next]
+  save()
+  return next
+}
+
 const currentUser = () => must(db.currentUserId ? db.users[db.currentUserId] : undefined, 'Signed-in user')
 
 /** Find or create the account and make it the current session. */
@@ -631,6 +652,60 @@ const rawApi: Api = {
     // Demo only: nothing is stored, so there is nothing to compare against.
     if (!current) throw new ApiError(400, 'Enter your current password.')
     if (next.length < 8) throw new ApiError(400, 'Use at least 8 characters.')
+  },
+  async listFundingAccounts() {
+    await wait(200)
+    return db.fundingAccounts[currentUser().id] ?? []
+  },
+  async connectFundingAccount(institution) {
+    await wait(1400)
+    const user = currentUser()
+    const list = (db.fundingAccounts[user.id] ??= [])
+    const acct: FundingAccount = {
+      id: id('fa'),
+      institution,
+      name: 'Checking',
+      last4: String(1000 + Math.floor(Math.random() * 9000)),
+      isDefault: list.length === 0,
+      connectedAt: new Date().toISOString(),
+    }
+    list.push(acct)
+    save()
+    return acct
+  },
+  async removeFundingAccount(aid) {
+    await wait(300)
+    const user = currentUser()
+    const list = (db.fundingAccounts[user.id] ?? []).filter((a) => a.id !== aid)
+    if (list.length && !list.some((a) => a.isDefault)) list[0].isDefault = true
+    db.fundingAccounts[user.id] = list
+    save()
+  },
+  async fundInvestment(investmentId, accountId) {
+    await wait(1500)
+    const user = currentUser()
+    must((db.fundingAccounts[user.id] ?? []).find((a) => a.id === accountId), 'Funding account')
+    const inv = must(db.investments[user.id]?.find((i) => i.id === investmentId), 'Investment')
+    if (inv.status !== 'committed') throw new ApiError(409, 'This investment is already funded.')
+    inv.status = 'funded'
+    save()
+    return inv
+  },
+  async listIntegrations() {
+    await wait(200)
+    return integrationsFor(currentUser())
+  },
+  async connectIntegration(iid) {
+    await wait(1600)
+    return patchIntegration(iid, { connected: true, connectedAt: new Date().toISOString(), pushCleared: true })
+  },
+  async disconnectIntegration(iid) {
+    await wait(400)
+    return patchIntegration(iid, { connected: false, connectedAt: null, pushCleared: false, importContacts: false })
+  },
+  async updateIntegration(iid, patch) {
+    await wait(250)
+    return patchIntegration(iid, patch)
   },
   async listInvestments() {
     await wait(350)

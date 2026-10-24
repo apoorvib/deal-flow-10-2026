@@ -35,6 +35,12 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | GET | `/me` | | `User`, or 401 when signed out |
 | POST | `/auth/signout` | | |
 | GET | `/me/investments` | | `Investment[]` |
+| GET / POST | `/me/funding-accounts` | `{ institution }` | `FundingAccount[]` / `FundingAccount` (bank link via the payments processor) |
+| DELETE | `/me/funding-accounts/:id` | | |
+| POST | `/me/investments/:id/fund` | `{ accountId }` | `Investment` (status `funded`) |
+| GET | `/issuer/integrations` | | `Integration[]` (Carta, AngelList, Affinity, Juniper Square) |
+| POST | `/issuer/integrations/:id/connect` · `/disconnect` | | `Integration` (OAuth with the platform) |
+| PATCH | `/issuer/integrations/:id` | `{ pushCleared?, importContacts? }` | `Integration` |
 | GET / PATCH | `/me/settings` | `Partial<UserSettings>` | `UserSettings` |
 | POST | `/me/password` | `{ current, next }` | |
 | GET | `/issuer/overview` | | `IssuerOverview` (fund, invite link, `IncomingInvestor[]`) |

@@ -6,10 +6,11 @@ import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/misc'
 import { ValidityRing } from '../components/ValidityRing'
+import { FundDialog, FundingAccounts } from '../features/funding/Funding'
 import { api } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
 import { daysUntil, longDate, shortDate, usd } from '../lib/format'
-import { PATHWAY_LABEL, type Fund, type Investment, type InvestmentStatus, type Passport, type Share } from '../lib/types'
+import { PATHWAY_LABEL, type Fund, type FundingAccount, type Investment, type InvestmentStatus, type Passport, type Share } from '../lib/types'
 
 const STATUS: Record<InvestmentStatus, { label: string; tone: 'brass' | 'ok' | 'neutral' }> = {
   committed: { label: 'Committed', tone: 'brass' },
@@ -23,6 +24,9 @@ export default function InvestorDashboard() {
   const [investments, setInvestments] = useState<Investment[] | null>(null)
   const [shares, setShares] = useState<Share[]>([])
   const [funds, setFunds] = useState<Fund[]>([])
+  const [accounts, setAccounts] = useState<FundingAccount[]>([])
+  const [funding, setFunding] = useState<Investment | null>(null)
+  const loadAccounts = () => api.listFundingAccounts().then(setAccounts, () => {})
 
   useEffect(() => {
     if (!user) return
@@ -32,9 +36,21 @@ export default function InvestorDashboard() {
     } else setPassport(null)
     api.listInvestments().then(setInvestments, () => setInvestments([]))
     api.listFunds().then(setFunds, () => {})
+    loadAccounts()
   }, [user])
 
   if (!user) return null
+  const fundingDialog = (
+    <FundDialog
+      investment={funding}
+      accounts={accounts}
+      onClose={() => setFunding(null)}
+      onFunded={(inv) => {
+        setInvestments((xs) => xs?.map((x) => (x.id === inv.id ? inv : x)) ?? xs)
+        setFunding(null)
+      }}
+    />
+  )
   const first = user.name.split(' ')[0]
   const total = investments?.reduce((n, i) => n + i.amount, 0) ?? 0
   const open = investments?.filter((i) => i.status !== 'closed').length ?? 0
@@ -101,6 +117,7 @@ export default function InvestorDashboard() {
                   <th className="px-6 py-3 text-right font-semibold">Amount</th>
                   <th className="px-6 py-3 font-semibold">Status</th>
                   <th className="px-6 py-3 font-semibold">Committed</th>
+                  <th className="px-6 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -117,12 +134,23 @@ export default function InvestorDashboard() {
                       </Badge>
                     </td>
                     <td className="hidden text-[15px] text-ink-2 sm:table-cell sm:px-6 sm:py-4">{shortDate(inv.committedAt)}</td>
+                    <td className="col-span-2 sm:px-6 sm:py-4 sm:text-right">
+                      {inv.status === 'committed' && (
+                        <Button size="sm" onClick={() => setFunding(inv)}>
+                          Fund
+                        </Button>
+                      )}
+                    </td>
                   </motion.tr>
                 ))}
               </tbody>
             </table>
           )}
         </section>
+
+        <div className="mt-8">
+          <FundingAccounts accounts={accounts} onChange={loadAccounts} />
+        </div>
 
         {/* Funds with access */}
         {passport && (
@@ -153,6 +181,7 @@ export default function InvestorDashboard() {
           </section>
         )}
       </div>
+      {fundingDialog}
     </div>
   )
 }

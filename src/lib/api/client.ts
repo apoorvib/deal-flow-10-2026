@@ -5,6 +5,9 @@ import type {
   AccountLink,
   ApplicationInput,
   Fund,
+  FundingAccount,
+  Integration,
+  IntegrationId,
   Investment,
   Invite,
   InviteAcceptance,
@@ -60,6 +63,18 @@ export interface Api {
 
   // Investor dashboard
   listInvestments(): Promise<Investment[]>
+  listFundingAccounts(): Promise<FundingAccount[]>
+  /** Links a bank through the payments processor (read + debit authorization). */
+  connectFundingAccount(institution: string): Promise<FundingAccount>
+  removeFundingAccount(id: string): Promise<void>
+  /** Sends the commitment from a funding account; the investment moves to `funded`. */
+  fundInvestment(investmentId: string, accountId: string): Promise<Investment>
+
+  // Fund platform integrations
+  listIntegrations(): Promise<Integration[]>
+  connectIntegration(id: IntegrationId): Promise<Integration>
+  disconnectIntegration(id: IntegrationId): Promise<Integration>
+  updateIntegration(id: IntegrationId, patch: Partial<Pick<Integration, 'pushCleared' | 'importContacts'>>): Promise<Integration>
 
   // Receiving-party (fund) dashboard
   getIssuerOverview(): Promise<IssuerOverview>
@@ -132,6 +147,16 @@ const httpApi: Api = {
     await post('/me/password', { current, next })
   },
   listInvestments: () => request('/me/investments'),
+  listFundingAccounts: () => request('/me/funding-accounts'),
+  connectFundingAccount: (institution) => post('/me/funding-accounts', { institution }),
+  removeFundingAccount: async (id) => {
+    await request(`/me/funding-accounts/${id}`, { method: 'DELETE' })
+  },
+  fundInvestment: (investmentId, accountId) => post(`/me/investments/${investmentId}/fund`, { accountId }),
+  listIntegrations: () => request('/issuer/integrations'),
+  connectIntegration: (id) => post(`/issuer/integrations/${id}/connect`),
+  disconnectIntegration: (id) => post(`/issuer/integrations/${id}/disconnect`),
+  updateIntegration: (id, patch) => request(`/issuer/integrations/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   getIssuerOverview: () => request('/issuer/overview'),
   nudgeInvestor: async (id) => {
     await post(`/issuer/investors/${id}/nudge`)

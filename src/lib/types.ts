@@ -340,3 +340,29 @@ export interface UserSettings {
   /** Investors: following a fund's invite shares a valid passport without asking. */
   autoShareOnInvite: boolean
 }
+
+// --- Funding (investor side) ------------------------------------------------------------------
+
+/** A bank account an investor sends capital from. Display data only; the processor holds the credentials. */
+export interface FundingAccount {
+  id: string
+  institution: string
+  name: string
+  last4: string
+  isDefault: boolean
+  connectedAt: string
+}
+
+// --- Platform integrations (fund side) --------------------------------------------------------
+
+export type IntegrationId = 'carta' | 'angellist' | 'affinity' | 'junipersquare'
+
+export interface Integration {
+  id: IntegrationId
+  connected: boolean
+  connectedAt: string | null
+  /** Push each cleared LP (status, basis, dates, letter) into the platform. */
+  pushCleared: boolean
+  /** Pull the platform's LP list in as invites. */
+  importContacts: boolean
+}
