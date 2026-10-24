@@ -206,15 +206,24 @@ This is where the AI layer earns its place, and it is native to the contract rat
 
 ---
 
-## 6. Vision Is Probably Unavailable — Assume Text
+## 6. Vision Works — Confirmed by Probe, 2026-10-24
 
-Every model in the live Nicrron catalog reports modality `chat`; none advertises image input. Until proven otherwise:
+The Nicrron catalog lists every model with modality `chat` and advertises no image input. **That label understates actual capability.** A direct probe sending a base64 PNG in an `image_url` content block succeeded on both models:
 
-- Documents are processed as **text** (extracted from the uploaded file, or pasted).
-- `signs_of_alteration` is **removed** from the challenger's failure modes. Left in on a text-only path, it invites the model to invent visual evidence it cannot have.
-- Forgery fixtures must be caught **arithmetically** — totals that do not reconcile, a generation date preceding the period it reports — not by font or alignment.
+```
+[openai/gpt-6-luna]         'The green "Savy" logo features a stylized shield containing an S.'
+[anthropic/claude-sonnet-5] 'Savy logo with green shield and "S" design, dark green text.'
+```
 
-A 10-minute probe is the first API call of the night. If vision does work, set `VISION_ENABLED=1` and `signs_of_alteration` returns.
+Both descriptions are accurate, so this is real vision, not a hallucinated guess. Consequences:
+
+- **`VISION_ENABLED=1`.** Extractor stays `openai/gpt-6-luna`; challenger stays `anthropic/claude-sonnet-5`, which keeps the vendors distinct.
+- **`signs_of_alteration` is in** the challenger's failure modes. Font and alignment evidence is now real evidence rather than an invitation to hallucinate.
+- Document **images** are viable, not just text.
+
+**Still prefer the arithmetic forgery for demo case 4.** A closing balance that does not reconcile and a generation date preceding its own statement period are two independently stateable defects that survive a model having an off run, a re-run on stage, and a judge asking to try a different file. Visual alteration is a *bonus* channel now, not the load-bearing one. Don't trade a robust catch for a flashier one.
+
+*Do not revert this section based on the catalog metadata. The probe is in `scratchpad/probe.py`; re-run it rather than trusting the model list.*
 
 ---
 

@@ -28,7 +28,7 @@ Every implementer must read these first. The contract is **fixed by the frontend
 - **Passport validity and freshness: 90 days.**
 - **Model IDs, exact:** extractor/classifier `openai/gpt-6-luna`, challenger `anthropic/claude-sonnet-5`, adjudicator `openai/gpt-6-astra`. The challenger **must not** be an OpenAI model — cross-vendor independence is the design's core claim.
 - **Nicrron base URL:** `https://api.nicrron.ai/v1`
-- **Assume text-only documents** until Task 1 proves otherwise.
+- **Vision is confirmed working** (probe, 2026-10-24 — see spec §6). `VISION_ENABLED=1`. The catalog's `modality: chat` label is wrong; both luna and Sonnet 5 read a base64 PNG correctly. `signs_of_alteration` stays in the challenger's failure modes.
 - **Decisions are deterministic.** An AI recommendation is an input; it never writes `decision`.
 - **Sandbox behavior is contract:** `scenario` on `/kyc` (`clean|ofac|fail`) and `/account-links` (`high|low`); CRD starting with `9` → `found: false`.
 - **Every external call is cached.** The demo must run with WiFi off.
@@ -66,21 +66,13 @@ Every implementer must read these first. The contract is **fixed by the frontend
 
 ---
 
-## Task 1: SPIKE — document modality (10 min, first API call of the night)
+## Task 1: SPIKE — document modality — ✅ COMPLETE (2026-10-24)
 
-Output is a **decision**, not code. Every later task depends on it.
+- [x] **Resolved: vision works on both models.** The catalog lists every model as modality `chat` and advertises no image input — that label is wrong. A base64 PNG in an `image_url` content block was described accurately by `openai/gpt-6-luna` *and* `anthropic/claude-sonnet-5`.
+- [x] **Decision:** `VISION_ENABLED=1`. Extractor `openai/gpt-6-luna`, challenger `anthropic/claude-sonnet-5` — vendors stay distinct. `signs_of_alteration` **stays in** the failure modes.
+- [x] Demo case 4 still uses the **arithmetic** forgery as its primary catch (spec §6) — two independently stateable defects beat one flashier visual one when a judge asks for a re-run. Visual alteration is now a bonus channel.
 
-- [ ] **Step 1:** `curl -s https://api.nicrron.ai/v1/models | python -m json.tool | grep -i -E 'modal|vision|image' | head -40`
-- [ ] **Step 2:** Try one image at `openai/gpt-6-luna` with an `image_url` content block; then at `anthropic/claude-sonnet-5`.
-- [ ] **Step 3:** Record the outcome:
-
-| Outcome | Action |
-|---|---|
-| luna reads images | `VISION_ENABLED=1`; keep `signs_of_alteration` |
-| only Sonnet reads images | `VISION_ENABLED=1`; extractor → Sonnet; **challenger → `deepseek/deepseek-v4-flash`** to keep vendors distinct |
-| none read images | `VISION_ENABLED=0`; text-only; **drop `signs_of_alteration`**; forgery fixture must be arithmetic |
-
-- [ ] **Step 4:** Tell the team in one line before anyone writes a fixture or a prompt.
+Probe script: `scratchpad/probe.py`. Re-run it rather than trusting catalog metadata.
 
 ---
 
