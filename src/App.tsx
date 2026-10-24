@@ -20,6 +20,7 @@ import InvestorDashboard from './pages/InvestorDashboard'
 import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
 import PassportPage from './pages/PassportPage'
+import Pricing from './pages/Pricing'
 import Security from './pages/Security'
 import Settings from './pages/Settings'
 import SignIn from './pages/SignIn'
@@ -28,10 +29,10 @@ import Verify from './pages/Verify'
 
 const NAV = [
   { to: '/get-started', label: 'Get verified' },
-  { to: '/#qualify', label: 'Ways to qualify' },
   { to: '/#how', label: 'How it works' },
   { to: '/#funds', label: 'For funds' },
   { to: '/#investors', label: 'For investors' },
+  { to: '/pricing', label: 'Pricing' },
   { to: '/security', label: 'Security' },
 ]
 
@@ -131,7 +132,7 @@ function Header() {
 
 const FOOTER_COLS = [
   { title: 'Investors', links: [['Get verified', '/get-started'], ['Ways to qualify', '/#qualify'], ['Sign in', '/signin'], ['Find your passport', '/find']] },
-  { title: 'Funds & GPs', links: [['Fund dashboard', '/signin?as=issuer'], ['Accept passports', '/#funds'], ['Verification letters', '/#how'], ['API access', '/#funds']] },
+  { title: 'Funds & GPs', links: [['Fund dashboard', '/signin?as=issuer'], ['Pricing', '/pricing'], ['Accept passports', '/#funds'], ['Verification letters', '/#how'], ['API access', '/#funds']] },
   { title: 'Trust', links: [['Security & compliance', '/security'], ['How we verify', '/#how'], ['Rule 506(c) overview', '/#qualify'], ['Admin console', '/admin']] },
 ]
 
@@ -199,6 +200,7 @@ export default function App() {
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/security" element={<Security />} />
+                <Route path="/pricing" element={<Pricing />} />
                 <Route path="/invite/:token" element={<InviteLanding />} />
                 <Route path="/admin" element={<AdminConsole />} />
                 <Route

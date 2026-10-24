@@ -807,6 +807,10 @@ const rawApi: Api = {
     save()
     return { user, outcome: active ? (auto ? 'shared' : 'confirm') : 'verify', passportId: active ? p!.id : null, fund }
   },
+  async requestQuote(q) {
+    await wait(800)
+    if (!q.email.includes('@') || !q.company.trim()) throw new ApiError(400, 'Add your work email and company.')
+  },
   async adminContext() {
     await wait(120)
     const ctx = adminCtx()

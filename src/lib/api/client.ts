@@ -18,6 +18,7 @@ import type {
   LicenseType,
   ParsedDocument,
   Passport,
+  QuoteRequest,
   AdminContext,
   AdminView,
   Decision,
@@ -86,6 +87,9 @@ export interface Api {
   // Invite links (public; the token is the credential)
   getInvite(token: string): Promise<InviteView>
   acceptInvite(token: string): Promise<InviteAcceptance>
+
+  /** Enterprise pricing enquiry; routed to sales. Public. */
+  requestQuote(q: QuoteRequest): Promise<void>
 
   // Admin showcase. The backend must restrict these to staff accounts.
   /** The admin session behind the current view, or null when no admin is signed in. */
@@ -165,6 +169,9 @@ const httpApi: Api = {
   inviteInvestors: (rows) => post('/issuer/invites', { invites: rows }),
   getInvite: (token) => request(`/invites/${token}`),
   acceptInvite: (token) => post(`/invites/${token}/accept`),
+  requestQuote: async (q) => {
+    await post('/sales/quote', q)
+  },
   adminContext: () => request<AdminContext | null>('/admin/context').catch((e) => (e instanceof ApiError && (e.status === 401 || e.status === 403) ? null : Promise.reject(e))),
   adminSwitch: (as) => post('/admin/switch', { as }),
   adminCreateCase: (decision) => post('/admin/cases', { decision }),

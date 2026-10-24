@@ -366,3 +366,14 @@ export interface Integration {
   /** Pull the platform's LP list in as invites. */
   importContacts: boolean
 }
+
+// --- Sales -----------------------------------------------------------------------------------
+
+export interface QuoteRequest {
+  name: string
+  email: string
+  company: string
+  /** Rough verifications per year. */
+  volume: string
+  notes?: string
+}
