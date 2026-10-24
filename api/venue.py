@@ -18,6 +18,8 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 
+from api.tracing import span
+
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 LOCAL_DIR = ROOT / "fixtures" / "live" / "roundtable"
@@ -99,17 +101,22 @@ class RoundtableVenue(LocalJsonVenue):
         if not self.enabled:
             return None
         try:
-            response = httpx.request(
-                method,
-                f"{self.base_url}{path}",
-                headers={"Authorization": f"Bearer {self.key}", "X-API-Key": self.key,
-                         "Content-Type": "application/json"},
-                json=payload,
-                timeout=self.timeout,
-            )
-            if response.is_success:
-                body = response.json()
-                return body if isinstance(body, dict) else {"data": body}
+            with span("roundtable.tool", model="roundtable", input_text=json.dumps({
+                "method": method, "path": path, "payload": payload,
+            })) as trace:
+                response = httpx.request(
+                    method,
+                    f"{self.base_url}{path}",
+                    headers={"Authorization": f"Bearer {self.key}", "X-API-Key": self.key,
+                             "Content-Type": "application/json"},
+                    json=payload,
+                    timeout=self.timeout,
+                )
+                body = response.json() if response.content else {}
+                trace.set(output_message=json.dumps({"status_code": response.status_code,
+                                                      "success": response.is_success}))
+                if response.is_success:
+                    return body if isinstance(body, dict) else {"data": body}
         except Exception:  # noqa: BLE001
             pass
         return None

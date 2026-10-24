@@ -2,8 +2,8 @@
 plus document-type classification.
 
 This module is deliberately minimal: it owns model selection, the HTTP call, and
-JSON-coercion of model replies. It does NOT own the debate loop, the rules engine,
-or tracing — those are later tasks layered on top of `complete_json`/`classify`.
+JSON-coercion of model replies. It does NOT own the debate loop or the rules
+engine; tracing is provided by `api.tracing` around the model call.
 
 Model choice is architecturally load-bearing, not arbitrary: the next task (a
 4-round adversarial debate) requires the challenger to be a *different vendor*

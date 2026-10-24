@@ -23,6 +23,7 @@ Updated 2026-10-24 after taking over the in-progress Ninoo work.
 - git diff --check
 
 - Syntax/import checks were repeated after the live integration wiring; no unit tests were written or run.
+- PRISM handshake returned 200; the application tracing path emitted live traces and the PRISM doctor reported `overall=connected`, `app_connected=true`, and `trace_normalized=done`.
 
 No unit tests were written or run.
 

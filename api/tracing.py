@@ -26,6 +26,8 @@ load_dotenv(ROOT / ".env")
 
 LOG = logging.getLogger("api.tracing")
 LOCAL_TRACE_FILE = ROOT / "fixtures" / "live" / "prism_traces.jsonl"
+DEFAULT_HOST = "https://api.prism.blockconvey.com"
+DEFAULT_PROJECT_ID = "4bdcda53-e2da-4d7e-91e9-f9ce234c351b"
 _lock = threading.Lock()
 
 
@@ -57,10 +59,10 @@ def _append_local(payload: dict[str, Any]) -> None:
 
 def _send(payload: dict[str, Any]) -> str | None:
     key = (os.getenv("PRISMTRACE_API_KEY") or "").strip()
-    project_id = (os.getenv("PRISMTRACE_PROJECT_ID") or "").strip()
+    project_id = (os.getenv("PRISMTRACE_PROJECT_ID") or DEFAULT_PROJECT_ID).strip()
     if not key or not project_id:
         return None
-    host = (os.getenv("PRISMTRACE_HOST") or "https://prism.blockconvey.com").rstrip("/")
+    host = (os.getenv("PRISMTRACE_HOST") or DEFAULT_HOST).rstrip("/")
     try:
         response = httpx.post(
             f"{host}/api/traces",
@@ -85,10 +87,10 @@ def evaluate_guardrail(trace_id: str, messages: list[dict[str, str]]) -> bool | 
     The local guardrail remains authoritative when the service is unavailable.
     """
     key = (os.getenv("PRISMTRACE_API_KEY") or "").strip()
-    project_id = (os.getenv("PRISMTRACE_PROJECT_ID") or "").strip()
+    project_id = (os.getenv("PRISMTRACE_PROJECT_ID") or DEFAULT_PROJECT_ID).strip()
     if not key or not project_id:
         return None
-    host = (os.getenv("PRISMTRACE_HOST") or "https://prism.blockconvey.com").rstrip("/")
+    host = (os.getenv("PRISMTRACE_HOST") or DEFAULT_HOST).rstrip("/")
     try:
         response = httpx.post(
             f"{host}/api/guardrails/evaluate",
@@ -168,5 +170,5 @@ def span(name: str, **attributes: Any) -> Iterator[Span]:
 def current_trace_url(trace_id: str | None) -> str | None:
     if not trace_id or not os.getenv("PRISMTRACE_API_KEY"):
         return None
-    host = (os.getenv("PRISMTRACE_HOST") or "https://prism.blockconvey.com").rstrip("/")
+    host = (os.getenv("PRISMTRACE_HOST") or DEFAULT_HOST).rstrip("/")
     return f"{host}/traces/{trace_id}"
