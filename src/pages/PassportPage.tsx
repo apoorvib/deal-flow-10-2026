@@ -61,7 +61,7 @@ export default function PassportPage() {
             <Button
               size="lg"
               variant="secondary"
-              onClick={() => toast(isMock ? 'Letter PDF comes from the backend' : 'Preparing your letter', { description: isMock ? 'Connect VITE_API_BASE_URL to download the signed letter.' : undefined })}
+              onClick={() => toast(isMock ? 'Letter PDF comes from the backend' : 'Preparing your letter', { description: isMock ? 'Connect VITE_API_BASE_URL to download the letter.' : undefined })}
             >
               <FileDown className="size-4" /> Verification letter
             </Button>
@@ -80,7 +80,13 @@ export default function PassportPage() {
                 <p className="mt-2 text-[14px] text-ink-3">Expires {longDate(p.expiresAt)}</p>
               </div>
             </div>
-            {renewSoon && (
+            {!active && (
+              <Link to="/get-started" className="mt-5 flex items-center justify-between rounded-[6px] bg-warn-soft px-4 py-3 text-[15px] text-ink">
+                <span>This verification is past its window. Re-verify in about a minute.</span>
+                <RefreshCw className="size-4 text-warn" />
+              </Link>
+            )}
+            {active && renewSoon && (
               <Link to="/verify" className="mt-5 flex items-center justify-between rounded-xl bg-brass-soft px-4 py-3 text-[15px] text-ink">
                 <span>Refresh now so your next close isn&rsquo;t held up.</span>
                 <RefreshCw className="size-4 text-brass" />

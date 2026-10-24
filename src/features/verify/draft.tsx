@@ -34,20 +34,18 @@ export interface Draft {
   signature: string
 }
 
+// Four steps; `minutes` drives the "about N min left" estimate.
 export const STEPS = [
-  { id: 'type', title: 'Investor type', short: 'Type' },
-  { id: 'profile', title: 'Your details', short: 'Details' },
-  { id: 'identity', title: 'Identity', short: 'Identity' },
-  { id: 'pathway', title: 'How you qualify', short: 'Qualify' },
-  { id: 'evidence', title: 'Evidence', short: 'Evidence' },
-  { id: 'attest', title: 'Sign', short: 'Sign' },
-  { id: 'review', title: 'Review', short: 'Review' },
+  { id: 'profile', title: 'Details', minutes: 1 },
+  { id: 'identity', title: 'Identity', minutes: 1 },
+  { id: 'qualify', title: 'Qualify', minutes: 4 },
+  { id: 'sign', title: 'Submit', minutes: 1 },
 ] as const
 
 export type StepId = (typeof STEPS)[number]['id']
 
 export const initialDraft = (): Draft => ({
-  step: 'type',
+  step: 'profile',
   investorType: null,
   profile: { legalName: '', email: '', country: 'United States' },
   kyc: null,
@@ -101,7 +99,7 @@ function reducer(d: Draft, a: Action): Draft {
   }
 }
 
-const KEY = 'lp-passport.draft.v1'
+const KEY = 'lp-passport.draft.v2'
 
 function loadDraft(): Draft {
   try {
@@ -109,7 +107,8 @@ function loadDraft(): Draft {
     if (!raw) return initialDraft()
     const saved = JSON.parse(raw) as Partial<Draft>
     const base = initialDraft()
-    return { ...base, ...saved, profile: { ...base.profile, ...saved.profile } }
+    const step = STEPS.some((x) => x.id === saved.step) ? saved.step : base.step
+    return { ...base, ...saved, step: step!, profile: { ...base.profile, ...saved.profile } }
   } catch {
     return initialDraft()
   }
@@ -145,55 +144,54 @@ export function useDraft() {
 
 const emailOk = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
 
+function evidenceBlocker(d: Draft): string | null {
+  const t = d.investorType ?? 'individual'
+  switch (d.pathway) {
+    case 'income': {
+      const { priorYear1, priorYear2, expectedCurrent } = d.income
+      if (priorYear1 == null || priorYear2 == null || expectedCurrent == null) return 'Enter income for each year.'
+      if (!d.documents.some((x) => x.income != null)) return 'Upload a tax document.'
+      return null
+    }
+    case 'net_worth':
+      if (!d.accountLink && !d.documents.some((x) => x.balance != null)) return 'Link an account or upload a statement.'
+      if (d.netWorth.liabilities == null) return 'Enter liabilities (0 if none).'
+      return null
+    case 'license':
+      return /^\d{4,8}$/.test(d.license.crd) ? null : 'Enter your CRD number.'
+    case 'min_investment':
+      if ((d.minInvestment.commitment ?? 0) < minInvestmentThreshold(t)) return `Minimum is $${(minInvestmentThreshold(t) / 1000).toLocaleString()}K.`
+      return d.attestations.notThirdPartyFinanced ? null : 'Confirm the funds aren’t borrowed.'
+    case 'entity_assets':
+      return d.entityAssets.totalAssets == null ? 'Enter total assets.' : null
+    default:
+      return 'Choose how you qualify.'
+  }
+}
+
 /** Returns a blocking message for the step, or null when the LP can continue. */
 export function stepBlocker(step: StepId, d: Draft): string | null {
   switch (step) {
-    case 'type':
-      return d.investorType ? null : 'Choose how you’re investing.'
     case 'profile':
+      if (!d.investorType) return 'Choose who’s investing.'
       if (d.profile.legalName.trim().split(/\s+/).length < 2) return 'Enter your full legal name.'
       if (!emailOk(d.profile.email)) return 'Enter a valid email.'
-      if (d.investorType === 'entity' && !d.profile.entityName?.trim()) return 'Enter the entity’s legal name.'
+      if (d.investorType === 'entity' && !d.profile.entityName?.trim()) return 'Enter the entity name.'
       if (d.investorType === 'entity' && !d.profile.entityKind) return 'Choose the entity type.'
       return null
     case 'identity':
       return d.kyc?.status === 'verified' ? null : 'Verify your ID to continue.'
-    case 'pathway':
-      return d.pathway ? null : 'Choose how you qualify.'
-    case 'evidence': {
-      const t = d.investorType ?? 'individual'
-      switch (d.pathway) {
-        case 'income': {
-          const { priorYear1, priorYear2, expectedCurrent } = d.income
-          if (priorYear1 == null || priorYear2 == null || expectedCurrent == null) return 'Enter income for each year.'
-          if (!d.documents.some((x) => x.income != null)) return 'Upload at least one tax document.'
-          return null
-        }
-        case 'net_worth':
-          if (!d.accountLink && !d.documents.some((x) => x.balance != null)) return 'Link accounts or upload a statement.'
-          if (d.netWorth.liabilities == null) return 'Enter your liabilities (0 if none).'
-          return null
-        case 'license':
-          if (!/^\d{4,8}$/.test(d.license.crd)) return 'Enter your 4 to 8 digit CRD number.'
-          return null
-        case 'min_investment':
-          return (d.minInvestment.commitment ?? 0) >= minInvestmentThreshold(t) ? null : `Commitment must be at least $${(minInvestmentThreshold(t) / 1000).toLocaleString()}K.`
-        case 'entity_assets':
-          return d.entityAssets.totalAssets == null ? 'Enter the entity’s total assets.' : null
-        default:
-          return 'Choose how you qualify first.'
-      }
-    }
-    case 'attest': {
-      const a = d.attestations
-      if (!a.accurate || !a.consentToVerify) return 'Confirm both statements to sign.'
-      if (d.pathway === 'min_investment' && !a.notThirdPartyFinanced) return 'Confirm the commitment isn’t financed by a third party.'
-      if (d.signature.trim().length < 3) return 'Type your full name to sign.'
-      return null
-    }
-    case 'review':
-      return null
+    case 'qualify':
+      return evidenceBlocker(d)
+    case 'sign':
+      return d.attestations.accurate && d.attestations.consentToVerify ? null : 'Check the box to sign.'
   }
+}
+
+/** Minutes remaining from the start of `step`, for the progress header. */
+export function minutesLeft(step: StepId): number {
+  const i = STEPS.findIndex((s) => s.id === step)
+  return STEPS.slice(i).reduce((n, s) => n + s.minutes, 0)
 }
 
 export function toApplication(d: Draft): ApplicationInput {

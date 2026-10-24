@@ -1,9 +1,10 @@
-import { AlertTriangle, FileText, Sparkles, Upload, X } from 'lucide-react'
+import { AlertTriangle, FileText, Lock, Upload, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { api } from '../../lib/api/client'
 import { cn } from '../../lib/cn'
+import { THRESHOLDS } from '../../lib/rules'
 import { shortDate, usd } from '../../lib/format'
 import type { DocType, ParsedDocument } from '../../lib/types'
 import { useDraft } from './draft'
@@ -54,7 +55,7 @@ export function DocumentUploader({ title, hint }: { title: string; hint: string 
       <div className="flex items-baseline justify-between">
         <h3 className="text-[16px] font-medium text-ink">{title}</h3>
         <span className="flex items-center gap-1 text-[12px] text-ink-3">
-          <Sparkles className="size-3 text-brass" /> Read automatically
+          <Lock className="size-3 text-accent" /> Goes to Savy, not the fund
         </span>
       </div>
 
@@ -121,7 +122,7 @@ export function DocumentUploader({ title, hint }: { title: string; hint: string 
 function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => void }) {
   const figure = doc.income != null ? { k: doc.taxYear ? `${doc.taxYear} income` : 'Income', v: usd(doc.income) } : doc.balance != null ? { k: 'Balance', v: usd(doc.balance) } : null
   const pct = Math.round(doc.confidence * 100)
-  const weak = doc.confidence < 0.8 || doc.flags.length > 0
+  const weak = doc.confidence < THRESHOLDS.reviewConfidence || doc.flags.length > 0
   return (
     <div className={cn('rounded-xl border bg-raised px-4 py-3.5', weak ? 'border-warn/40' : 'border-line')}>
       <div className="flex items-start gap-3">
@@ -147,7 +148,7 @@ function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => voi
           </dl>
           {doc.flags.length > 0 && (
             <p className="mt-2.5 flex items-start gap-1.5 text-[14px] text-warn">
-              <AlertTriangle className="mt-px size-3.5 shrink-0" /> {doc.flags.join(' · ')}. A reviewer will look at this.
+              <AlertTriangle className="mt-px size-3.5 shrink-0" /> {doc.flags.join(' · ')}. We’ll double-check this.
             </p>
           )}
         </div>

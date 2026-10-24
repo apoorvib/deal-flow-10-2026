@@ -1,24 +1,30 @@
 import { AlertTriangle, Camera, RotateCcw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '../../../components/ui/button'
-import { Badge } from '../../../components/ui/misc'
 import { api, isMock, type KycScenario } from '../../../lib/api/client'
 import { cn } from '../../../lib/cn'
 import { useDraft } from '../draft'
 import { SandboxPicker } from './sandbox'
 
-export function IdentityStep() {
+export function IdentityStep({ onDone }: { onDone: () => void }) {
   const { draft, dispatch } = useDraft()
   const [busy, setBusy] = useState(false)
   const [scenario, setScenario] = useState<KycScenario>('clean')
   const kyc = draft.kyc
+  // Keep the latest callback: the parent re-creates it after the KYC result lands in the draft.
+  const done = useRef(onDone)
+  useEffect(() => {
+    done.current = onDone
+  })
 
   const run = async () => {
     setBusy(true)
     try {
       const s = await api.startKyc(draft.profile.legalName, scenario)
       dispatch({ type: 'patch', patch: { kyc: s } })
+      // A clean pass needs nothing else from the LP, so move on by itself.
+      if (s.status === 'verified') setTimeout(() => done.current(), 900)
     } finally {
       setBusy(false)
     }
@@ -28,44 +34,31 @@ export function IdentityStep() {
 
   return (
     <div className="grid gap-5">
-      <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-        <div className="grid place-items-center px-6 pt-10 pb-8">
+      <div className="overflow-hidden rounded-2xl border border-line bg-raised">
+        <div className="grid place-items-center bg-surface px-6 pt-10 pb-8">
           <IdGraphic state={state} />
         </div>
-        <div className="border-t border-line bg-raised px-5 py-4 sm:px-6">
+        <div className="border-t border-line px-5 py-4 sm:px-6">
           <AnimatePresence mode="wait" initial={false}>
             {state === 'verified' && kyc ? (
-              <motion.div key="ok" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <ShieldCheck className="size-5 text-ok" />
-                  <div>
-                    <p className="text-[16px] font-medium text-ink">ID verified for {kyc.nameOnId}</p>
-                    <p className="text-[14px] text-ink-3">Liveness check passed</p>
-                  </div>
-                </div>
-                {kyc.ofacHit ? <Badge tone="warn" dot>Sanctions: needs review</Badge> : <Badge tone="ok" dot>Sanctions and PEP: clear</Badge>}
-              </motion.div>
+              <motion.p key="ok" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2.5 text-[16px] font-semibold text-ink">
+                <ShieldCheck className="size-5 text-ok" />
+                {kyc.ofacHit ? 'ID verified · sanctions check needs review' : 'ID verified'}
+              </motion.p>
             ) : state === 'failed' ? (
               <motion.div key="fail" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="size-5 text-danger" />
-                  <div>
-                    <p className="text-[16px] font-medium text-ink">We couldn&rsquo;t read your ID</p>
-                    <p className="text-[14px] text-ink-3">Try again in good light, with all four corners in frame.</p>
-                  </div>
-                </div>
+                <p className="flex items-center gap-2.5 text-[16px] font-semibold text-ink">
+                  <AlertTriangle className="size-5 text-danger" /> Couldn&rsquo;t read your ID
+                </p>
                 <Button variant="secondary" size="sm" onClick={run}>
                   <RotateCcw className="size-3.5" /> Try again
                 </Button>
               </motion.div>
             ) : (
-              <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-wrap items-center justify-between gap-4">
-                <p className="max-w-sm text-[15px] leading-relaxed text-ink-2">
-                  {busy ? 'Checking the document and matching your selfie…' : 'Have a passport or driver’s license ready. It takes under a minute on your phone or webcam.'}
-                </p>
-                <Button onClick={run} loading={busy}>
+              <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <Button onClick={run} loading={busy} size="lg" className="w-full">
                   {!busy && <Camera className="size-4" />}
-                  {busy ? 'Verifying' : 'Verify my ID'}
+                  {busy ? 'Checking' : 'Scan my ID'}
                 </Button>
               </motion.div>
             )}
@@ -83,11 +76,6 @@ export function IdentityStep() {
             { id: 'fail', label: 'ID fails' },
           ]}
         />
-      )}
-      {kyc && (
-        <button type="button" className="justify-self-start text-[14px] text-ink-3 underline decoration-line-strong underline-offset-4 hover:text-ink" onClick={() => dispatch({ type: 'patch', patch: { kyc: null } })}>
-          Use a different ID
-        </button>
       )}
     </div>
   )
