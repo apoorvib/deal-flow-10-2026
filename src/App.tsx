@@ -89,7 +89,7 @@ function Header() {
       <div className="border-b border-line bg-paper">
         <p className="mx-auto flex h-11 max-w-6xl items-center justify-center gap-2 px-5 text-center text-[13px] text-ink-2 italic sm:px-8">
           <ShieldCheck className="size-4 shrink-0 text-accent not-italic" strokeWidth={2} />
-          Built for Rule 506(c) · Investor data never touches your inbox
+          We take on the verification liability · Built for Rule 506(c)
         </p>
       </div>
       <div className="border-b border-line bg-paper">

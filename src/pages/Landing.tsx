@@ -1,7 +1,7 @@
 // Copy source: design/copy/savy-website-copy.pdf. Bracketed placeholders there (stats, pricing,
 // testimonials) are intentionally left out until real numbers exist.
 
-import { BadgeCheck, Briefcase, Building2, CalendarCheck, Check, ChevronDown, ChevronRight, FileCheck2, FolderCheck, Moon, Repeat, Send, ShieldCheck, User, Users } from 'lucide-react'
+import { BadgeCheck, Ban, Briefcase, Building2, CalendarCheck, Check, ChevronDown, ChevronRight, FileCheck2, FileWarning, FolderCheck, Gavel, Moon, Repeat, Send, ShieldCheck, Undo2, User, Users } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import { PassportCard } from '../components/PassportCard'
@@ -37,12 +37,22 @@ const STEPS = [
 
 const OUTCOMES = [
   { icon: CalendarCheck, title: 'Close on schedule', body: 'Every LP cleared before your first close. The wire is the only thing left.' },
-  { icon: Moon, title: 'Sleep through the audit', body: 'One clean file per purchaser, timestamped and ready to hand over.' },
+  { icon: Moon, title: 'Sleep through the audit', body: 'One clean file per purchaser, timestamped and ready to hand over. If we got one wrong, it’s our problem.' },
   { icon: ShieldCheck, title: 'Treat LPs like LPs', body: 'Your investors never email a tax return to your inbox. They notice.' },
   { icon: Repeat, title: 'Verified once, reused', body: 'Investors carry their status to the next Savy deal. No repeat paperwork.' },
 ]
 
+// Consequences of a failed 506(c) verification, per plan.md section 11. Keep these factual: they are
+// what makes the risk real, and overstating them would undercut the credibility we sell.
+const STAKES = [
+  { icon: FileWarning, title: 'Your exemption, gone', body: 'Can’t show reasonable steps to verify? The raise can lose its Rule 506 exemption and become an unregistered offering.' },
+  { icon: Undo2, title: 'Every LP can ask for their money back', body: 'Rescission rights let purchasers demand their investment back, with interest. Not just the one who wasn’t accredited.' },
+  { icon: Gavel, title: 'The SEC, personally', body: 'Cease-and-desist orders, disgorgement and civil penalties. Control persons, meaning you, can be held personally liable.' },
+  { icon: Ban, title: 'Your next fund, too', body: 'State regulators can act on their own, and a violation can disqualify you from future Rule 506 offerings.' },
+]
+
 const FOR_FUNDS = [
+  ['We take on the liability.', 'If an investor Savy cleared turns out not to be accredited, that’s on us, not you.'],
   ['One link per raise.', 'No portals, no spreadsheets, no email attachments.'],
   ['Live LP status.', 'Cleared, pending, expired, all in one view.'],
   ['Audit-ready by default.', 'A timestamped verification record per purchaser.'],
@@ -64,7 +74,8 @@ const STATS = [
 ]
 
 const FAQ = [
-  { q: '“We just use a checkbox.”', a: 'Under 506(c), self-certification alone doesn’t count as verification. Savy is the step that does.' },
+  { q: '“We just use a checkbox.”', a: 'Under 506(c), self-certification alone doesn’t count as verification. If one LP isn’t really accredited, a checkbox won’t save the exemption, and every investor in the round can ask for their money back. Savy is the step that does count.' },
+  { q: '“Who’s on the hook if a verification is wrong?”', a: 'We are. When Savy clears an investor, we take on the liability for that verification under the Savy Verification Guarantee, and you keep a documented, timestamped record of the reasonable steps taken.' },
   { q: '“Our checks are over $200K.”', a: 'The 2025 SEC staff guidance helps, but it’s non-binding and needs written representations. Savy collects those too, so every investor is covered either way.' },
   { q: '“Our LPs hate paperwork.”', a: 'So do we. With account connections, most investors never upload a document.' },
   { q: '“Why should I trust you with my data?”', a: 'Read-only account connections, encrypted storage, and funds only ever see your status, never your statements.' },
@@ -103,7 +114,7 @@ export default function Landing() {
                 See how it works <ChevronRight className="size-4" />
               </Link>
             </div>
-            <p className="mt-8 border-t border-line pt-5 text-[14px] text-ink-3">Built for Rule 506(c) · Read-only account connections · Investor data never touches your inbox</p>
+            <p className="mt-8 border-t border-line pt-5 text-[14px] text-ink-3">We take on the verification liability · Built for Rule 506(c) · Investor data never touches your inbox</p>
           </motion.div>
         </div>
       </section>
@@ -131,6 +142,34 @@ export default function Landing() {
         <p className="mt-6 text-[18px] leading-relaxed text-ink-2">
           A 506(c) raise needs more than a checkbox: two years of tax returns, statements from the last three months, and a file for every LP. So your team chases PDFs while your investors wonder why a fund they trust wants their bank statements.
         </p>
+      </section>
+
+      {/* What's at stake */}
+      <section className="bg-navy text-white">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+          <p className="text-[13px] font-semibold tracking-[0.08em] text-white/60 uppercase">What&rsquo;s at stake</p>
+          <h2 className="display mt-4 max-w-3xl text-[clamp(30px,3.8vw,44px)] leading-[1.1]">One unverified LP can unwind your entire raise.</h2>
+          <div className="mt-12 grid gap-px overflow-hidden bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
+            {STAKES.map((x, i) => (
+              <motion.div key={x.title} {...inView} transition={{ delay: i * 0.06 }} className="bg-navy p-7">
+                <x.icon className="size-6 text-mint" strokeWidth={1.5} />
+                <h3 className="mt-5 text-[19px] font-semibold">{x.title}</h3>
+                <p className="mt-2 text-[16px] leading-relaxed text-white/75">{x.body}</p>
+              </motion.div>
+            ))}
+          </div>
+          <div className="mt-10 flex flex-col items-start justify-between gap-6 border-t border-white/15 pt-8 md:flex-row md:items-center">
+            <p className="max-w-2xl text-[18px] leading-relaxed text-white/85">
+              The rule protects issuers who can prove a reasonable, documented process. <span className="font-semibold text-white">Savy is that process, and we take on the liability for it.</span>
+            </p>
+            <Link to="/get-started">
+              <Button size="lg" className="h-14 shrink-0 bg-white px-7 text-[18px] text-navy hover:bg-white/90">
+                Protect my raise
+              </Button>
+            </Link>
+          </div>
+          <p className="mt-6 text-[13px] text-white/50">Consequences depend on your offering and the facts. Savy does not provide legal advice; talk to counsel about how Rule 506(c) applies to you.</p>
+        </div>
       </section>
 
       {/* How it works */}
@@ -177,7 +216,7 @@ export default function Landing() {
             id="funds"
             eyebrow="For funds and issuers"
             title="The last thing standing between you and your close. Gone."
-            sub="Savy verifies every LP in your 506(c) raise and hands you an audit-ready file."
+            sub="Savy verifies every LP in your 506(c) raise, hands you an audit-ready file, and takes on the liability if a verification is wrong."
             items={FOR_FUNDS}
             cta={{ label: 'Start verifying', to: '/get-started' }}
           />
@@ -260,7 +299,7 @@ export default function Landing() {
         <div className="flex flex-col items-start justify-between gap-8 bg-navy px-8 py-12 text-white sm:px-14 md:flex-row md:items-center">
           <div className="max-w-xl">
             <h2 className="display text-[clamp(28px,3.4vw,40px)] leading-[1.12]">Your next close is already on the calendar. Let&rsquo;s keep it there.</h2>
-            <p className="mt-3 text-[17px] text-white/80">Your first investor can be verified today.</p>
+            <p className="mt-3 text-[17px] text-white/80">Don&rsquo;t bet the raise on a checkbox. Your first investor can be verified today, with the liability on us.</p>
           </div>
           <Link to="/get-started">
             <Button size="lg" className="h-14 bg-white px-7 text-[18px] text-navy hover:bg-white/90">

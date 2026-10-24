@@ -1,5 +1,5 @@
 import NumberFlow from '@number-flow/react'
-import { Check, ChevronRight, CircleAlert, CircleCheck, CircleX, Copy, EyeOff, FileDown, Search, Send, X } from 'lucide-react'
+import { Check, ChevronRight, CircleAlert, CircleCheck, CircleX, Copy, EyeOff, FileDown, Search, Send, ShieldCheck, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Dialog } from 'radix-ui'
 import { useEffect, useMemo, useState } from 'react'
@@ -80,6 +80,9 @@ export default function FundDashboard() {
             <h1 className="display mt-2 text-[clamp(30px,4vw,40px)] text-ink">{data.fund.name}</h1>
             <p className="mt-1 text-[16px] text-ink-3">
               {data.fund.manager} · Rule {data.fund.offering} · Closes {data.fund.closing === 'Rolling' ? 'rolling' : longDate(data.fund.closing)}
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-[15px] text-ok">
+              <ShieldCheck className="size-4" /> Every investor Savy clears is covered by the Savy Verification Guarantee.
             </p>
           </div>
           <InviteLink url={data.inviteUrl} />
