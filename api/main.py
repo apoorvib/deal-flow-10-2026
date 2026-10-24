@@ -451,6 +451,46 @@ def _seed_investor_rows() -> list[IncomingInvestor]:
     return out
 
 
+def _shared_investor_rows(fund_id: str) -> list[IncomingInvestor]:
+    """Return only the status and outcomes a fund is allowed to see."""
+    rows: dict[str, IncomingInvestor] = {}
+    shares = sorted(store.all_of("shares", ShareModel), key=lambda item: item.created_at, reverse=True)
+    for share in shares:
+        if share.fund_id != fund_id:
+            continue
+        passport = store.get("passports", share.passport_id, Passport)
+        if passport is None:
+            continue
+        verification = store.get("verifications", passport.verification_id, Verification)
+        email = verification.input.profile.email.strip().lower() if verification else ""
+        if not email or email in rows:
+            continue
+        try:
+            active = datetime.datetime.fromisoformat(passport.expires_at) > datetime.datetime.now(datetime.timezone.utc)
+        except ValueError:
+            active = False
+        commitment = (
+            verification.input.min_investment.commitment
+            if verification and verification.input.min_investment
+            else 0
+        )
+        rows[email] = IncomingInvestor(
+            id=f"lp_{share.id}",
+            name=passport.holder_name,
+            email=email,
+            investor_type=passport.investor_type,
+            status="verified" if active else "expired",
+            pathway=passport.pathway,
+            verified_at=passport.issued_at,
+            expires_at=passport.expires_at,
+            letter_ref=passport.letter_ref,
+            commitment=commitment,
+            last_activity_at=share.created_at,
+            checks=[IncomingCheck(id=item.id, label=item.label, result=item.result) for item in passport.checks],
+        )
+    return list(rows.values())
+
+
 def _admin_context(request: Request) -> AdminContext:
     admin = auth.admin_user(request)
     investor, issuer = _ensure_demo_personas()
@@ -472,10 +512,12 @@ def get_issuer_overview(request: Request) -> IssuerOverview:
     if user.role != "issuer":
         raise HTTPException(403, "Issuer access required.")
     fund = FUNDS_BY_ID[user.fund_id or "fund_meridian"]
+    investors = {row.email.lower(): row for row in _seed_investor_rows()}
+    investors.update({row.email.lower(): row for row in _shared_investor_rows(fund.id)})
     return IssuerOverview(
         fund=fund,
         invite_url="http://localhost:5173/get-started?fund=%s" % fund.id,
-        investors=_seed_investor_rows(),
+        investors=sorted(investors.values(), key=lambda row: row.last_activity_at, reverse=True),
     )
 
 

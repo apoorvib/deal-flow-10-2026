@@ -9,6 +9,7 @@ Updated 2026-10-24 after taking over the in-progress Ninoo work.
 - Review sign-off uses the pipeline guardrail and preserves the audit record.
 - Passwordless auth routes used by the current client are implemented, with email/password register/login compatibility. Sessions and ownership use PostgreSQL when DATABASE_URL exists and a local SQLite file otherwise.
 - Added dashboard and admin routes required by src/lib/api/client.ts, including persona switching, seeded demo cases, reset, investor investments, issuer overview, and nudges.
+- Issuer overview now merges real shared passports with the seeded pipeline rows while exposing only status and check outcomes.
 - Added scripts/seed_demo.py and seeded fixtures/cache/debates/ for all seven synthetic document fixtures. Run python scripts/seed_demo.py after changing fixture bytes.
 - Updated api/migrations/001_auth.sql for admin roles, sign-in links, and admin session views.
 - Added PRISM HTTP tracing with local JSONL fallback, including the passport-issuance guardrail call.
