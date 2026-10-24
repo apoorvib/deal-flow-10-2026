@@ -9,7 +9,11 @@ import { useAuth } from '../lib/auth'
 import { setSession } from '../lib/session'
 import type { Fund, Passport } from '../lib/types'
 
-type State = { kind: 'opening' } | { kind: 'cleared'; fund: Fund; passport: Passport } | { kind: 'error'; message: string }
+type State =
+  | { kind: 'opening' }
+  | { kind: 'confirm'; fund: Fund; passport: Passport }
+  | { kind: 'cleared'; fund: Fund; passport: Passport }
+  | { kind: 'error'; message: string }
 
 /**
  * Where a fund's invite email lands. The link signs the LP in (or creates their account), then:
@@ -32,10 +36,10 @@ export default function InviteLanding() {
         setFundName(view.fund.name)
         const res = await api.acceptInvite(token)
         await refresh()
-        if (res.outcome === 'shared' && res.passportId) {
+        if ((res.outcome === 'shared' || res.outcome === 'confirm') && res.passportId) {
           setSession({ passportId: res.passportId, invite: null })
           const { passport } = await api.getPassport(res.passportId)
-          setState({ kind: 'cleared', fund: res.fund, passport })
+          setState({ kind: res.outcome === 'shared' ? 'cleared' : 'confirm', fund: res.fund, passport })
         } else {
           setSession({ invite: { token, fundName: res.fund.name, email: view.email } })
           navigate('/get-started?invited=1', { replace: true })
@@ -64,6 +68,29 @@ export default function InviteLanding() {
         <div>
           <Loader2 className="mx-auto size-7 animate-spin text-accent" />
           <p className="mt-4 text-[17px] text-ink-2">{fundName ? `Opening your invitation from ${fundName}…` : 'Opening your invitation…'}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (state.kind === 'confirm') {
+    const { fund, passport } = state
+    return (
+      <div className="mx-auto max-w-3xl px-5 pt-14 pb-10 text-center sm:px-8 sm:pt-20">
+        <h1 className="display text-[clamp(32px,4.6vw,48px)] leading-[1.06] text-ink">Share your passport with {fund.name}?</h1>
+        <p className="mx-auto mt-4 max-w-lg text-[17px] leading-relaxed text-ink-2">You&rsquo;re already verified. {fund.manager} will see your status, basis and dates, never your documents.</p>
+        <div className="mx-auto mt-10 max-w-md">
+          <PassportCard data={{ ...passport, status: 'active' }} />
+        </div>
+        <div className="mt-9 flex flex-wrap justify-center gap-3">
+          <Button size="lg" onClick={() => api.sharePassport(passport.id, fund.id).then(() => setState({ kind: 'cleared', fund, passport }))}>
+            Share passport
+          </Button>
+          <Link to="/dashboard">
+            <Button size="lg" variant="secondary">
+              Not now
+            </Button>
+          </Link>
         </div>
       </div>
     )

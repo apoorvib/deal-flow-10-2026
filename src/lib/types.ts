@@ -301,11 +301,23 @@ export interface InviteView {
 
 /**
  * Following the invite signs the LP in (creating the account if needed; the emailed link proves the address).
- * `shared`: they already held a valid passport, now shared with the fund. `verify`: they need to verify first.
+ * `shared`: they already held a valid passport, now shared with the fund. `confirm`: they hold one but turned off
+ * auto-share, so they're asked first. `verify`: they need to verify first.
  */
 export interface InviteAcceptance {
   user: User
-  outcome: 'shared' | 'verify'
+  outcome: 'shared' | 'confirm' | 'verify'
   passportId: string | null
   fund: Fund
+}
+
+// --- Account settings -------------------------------------------------------------------------
+
+export interface UserSettings {
+  name: string
+  email: string
+  /** Keys depend on role; see SETTINGS_NOTIFICATIONS in pages/Settings.tsx. */
+  notifications: Record<string, boolean>
+  /** Investors: following a fund's invite shares a valid passport without asking. */
+  autoShareOnInvite: boolean
 }

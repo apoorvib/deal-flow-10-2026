@@ -21,6 +21,7 @@ import type {
   Role,
   Share,
   User,
+  UserSettings,
   Verification,
 } from '../types'
 import { ApiError } from './errors'
@@ -51,6 +52,9 @@ export interface Api {
   signIn(email: string, password: string, role: Role): Promise<User>
   me(): Promise<User | null>
   signOut(): Promise<void>
+  getSettings(): Promise<UserSettings>
+  updateSettings(patch: Partial<Omit<UserSettings, 'email'>>): Promise<UserSettings>
+  changePassword(current: string, next: string): Promise<void>
 
   // Investor dashboard
   listInvestments(): Promise<Investment[]>
@@ -118,6 +122,11 @@ const httpApi: Api = {
   me: () => request<User | null>('/me').catch((e) => (e instanceof ApiError && e.status === 401 ? null : Promise.reject(e))),
   signOut: async () => {
     await post('/auth/signout')
+  },
+  getSettings: () => request('/me/settings'),
+  updateSettings: (patch) => request('/me/settings', { method: 'PATCH', body: JSON.stringify(patch) }),
+  changePassword: async (current, next) => {
+    await post('/me/password', { current, next })
   },
   listInvestments: () => request('/me/investments'),
   getIssuerOverview: () => request('/issuer/overview'),

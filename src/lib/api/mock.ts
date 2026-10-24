@@ -21,6 +21,7 @@ import type {
   Role,
   Share,
   User,
+  UserSettings,
   Verification,
 } from '../types'
 import type { AccountScenario, Api, KycScenario } from './client'
@@ -46,9 +47,11 @@ interface Db {
   adminView: AdminView
   /** Fund invites, keyed by link token. */
   invites: Record<string, Invite>
+  /** Per-user settings (never passwords). */
+  settings: Record<string, Omit<UserSettings, 'name' | 'email'>>
 }
 
-const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin', invites: {} })
+const empty = (): Db => ({ kyc: {}, links: {}, docs: {}, verifications: {}, passports: {}, shares: {}, users: {}, currentUserId: null, investments: {}, nudged: {}, adminId: null, adminView: 'admin', invites: {}, settings: {} })
 
 function load(): Db {
   try {
@@ -423,6 +426,24 @@ function adminCtx(): AdminContext | null {
   return { admin, viewingAs: db.adminView, investor, issuer }
 }
 
+const DEFAULT_NOTIFICATIONS: Record<Role, Record<string, boolean>> = {
+  investor: { passportExpiry: true, fundRequests: true, productUpdates: false },
+  issuer: { lpCleared: true, weeklyDigest: true, autoNudge: true },
+  admin: { productUpdates: false },
+}
+
+function settingsFor(user: User): UserSettings {
+  const saved = db.settings[user.id]
+  return {
+    name: user.name,
+    email: user.email,
+    notifications: { ...DEFAULT_NOTIFICATIONS[user.role], ...saved?.notifications },
+    autoShareOnInvite: saved?.autoShareOnInvite ?? true,
+  }
+}
+
+const currentUser = () => must(db.currentUserId ? db.users[db.currentUserId] : undefined, 'Signed-in user')
+
 /** Find or create the account and make it the current session. */
 function signInAs(rawEmail: string, role: Role): User {
   const email = rawEmail.trim().toLowerCase()
@@ -570,6 +591,29 @@ const rawApi: Api = {
     db.adminView = 'admin'
     save()
   },
+  async getSettings() {
+    await wait(200)
+    return settingsFor(currentUser())
+  },
+  async updateSettings(patch) {
+    await wait(350)
+    const user = currentUser()
+    if (patch.name?.trim()) user.name = patch.name.trim()
+    const cur = settingsFor(user)
+    db.settings[user.id] = {
+      notifications: { ...cur.notifications, ...patch.notifications },
+      autoShareOnInvite: patch.autoShareOnInvite ?? cur.autoShareOnInvite,
+    }
+    save()
+    return settingsFor(user)
+  },
+  async changePassword(current, next) {
+    await wait(500)
+    currentUser()
+    // Demo only: nothing is stored, so there is nothing to compare against.
+    if (!current) throw new ApiError(400, 'Enter your current password.')
+    if (next.length < 8) throw new ApiError(400, 'Use at least 8 characters.')
+  },
   async listInvestments() {
     await wait(350)
     const user = must(db.currentUserId ? db.users[db.currentUserId] : undefined, 'Signed-in user')
@@ -649,12 +693,13 @@ const rawApi: Api = {
     if (db.adminId) db.adminView = 'investor'
     const p = user.passportId ? db.passports[user.passportId] : undefined
     const active = !!p && new Date(p.expiresAt) > new Date()
-    if (active) {
+    const auto = settingsFor(user).autoShareOnInvite
+    if (active && auto) {
       shareWith(p!.id, fund.id)
       inv.status = 'accepted'
     }
     save()
-    return { user, outcome: active ? 'shared' : 'verify', passportId: active ? p!.id : null, fund }
+    return { user, outcome: active ? (auto ? 'shared' : 'confirm') : 'verify', passportId: active ? p!.id : null, fund }
   },
   async adminContext() {
     await wait(120)

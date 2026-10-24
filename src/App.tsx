@@ -2,7 +2,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useEffect } from 'react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
-import { ChevronDown, CircleHelp, LayoutDashboard, LogOut, ShieldCheck, UserRound, WalletCards } from 'lucide-react'
+import { ChevronDown, CircleHelp, LayoutDashboard, LogOut, Settings as SettingsIcon, ShieldCheck, UserRound, WalletCards } from 'lucide-react'
 import { DropdownMenu } from 'radix-ui'
 import logo from './assets/savy-logo.png'
 import { isMock } from './lib/api/client'
@@ -20,6 +20,7 @@ import InvestorDashboard from './pages/InvestorDashboard'
 import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
 import PassportPage from './pages/PassportPage'
+import Settings from './pages/Settings'
 import SignIn from './pages/SignIn'
 import Status from './pages/Status'
 import Verify from './pages/Verify'
@@ -74,6 +75,9 @@ function AccountMenu() {
               <WalletCards className="size-4 text-ink-3" /> My passport
             </DropdownMenu.Item>
           )}
+          <DropdownMenu.Item className={item} onSelect={() => navigate('/settings')}>
+            <SettingsIcon className="size-4 text-ink-3" /> Settings
+          </DropdownMenu.Item>
           <DropdownMenu.Separator className="my-1 h-px bg-line" />
           <DropdownMenu.Item className={item} onSelect={() => signOut().then(() => navigate('/'))}>
             <LogOut className="size-4 text-ink-3" /> Sign out
@@ -191,6 +195,7 @@ export default function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/get-started" element={<GetStarted />} />
                 <Route path="/signin" element={<SignIn />} />
+                <Route path="/settings" element={<Settings />} />
                 <Route path="/invite/:token" element={<InviteLanding />} />
                 <Route path="/admin" element={<AdminConsole />} />
                 <Route

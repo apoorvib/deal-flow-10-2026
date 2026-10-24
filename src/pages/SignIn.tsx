@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Photo } from '../components/Photo'
 import { Button } from '../components/ui/button'
 import { Field, Input } from '../components/ui/field'
-import { api, isMock } from '../lib/api/client'
+import { api } from '../lib/api/client'
 import { homeFor, useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import type { Role } from '../lib/types'
@@ -85,7 +85,7 @@ export default function SignIn() {
             <Input type="email" autoComplete="email" inputMode="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={error?.field === 'email' || undefined} />
           </Field>
 
-          <Field label="Password" className="mt-5" error={error?.field === 'password' ? error.message : null} hint={isMock ? 'Demo: any password works' : undefined}>
+          <Field label="Password" className="mt-5" error={error?.field === 'password' ? error.message : null}>
             <div className="relative">
               <Input
                 type={show ? 'text' : 'password'}

@@ -35,6 +35,8 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | GET | `/me` | | `User`, or 401 when signed out |
 | POST | `/auth/signout` | | |
 | GET | `/me/investments` | | `Investment[]` |
+| GET / PATCH | `/me/settings` | `Partial<UserSettings>` | `UserSettings` |
+| POST | `/me/password` | `{ current, next }` | |
 | GET | `/issuer/overview` | | `IssuerOverview` (fund, invite link, `IncomingInvestor[]`) |
 | POST | `/issuer/investors/:id/nudge` | | |
 | POST | `/issuer/invites` | `{ invites: InviteRequest[] }` | `{ invites: Invite[] }` (emails each LP a link) |
