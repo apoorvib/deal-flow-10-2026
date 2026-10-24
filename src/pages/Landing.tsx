@@ -29,6 +29,15 @@ const AUDIENCES = [
   { icon: Briefcase, label: 'Fund managers', to: '/#funds' },
 ]
 
+// The platforms most VC firms run on, one per job. Shown as "works alongside", not as an integration
+// or endorsement: Savy's passport and letter fit any workflow. Marks are each company's own site icon.
+const PLATFORMS = [
+  { name: 'Carta', logo: '/img/platforms/carta.png', job: 'Cap tables & fund admin', fit: 'Keep running the fund in Carta. Savy hands you the accreditation file for every LP.' },
+  { name: 'AngelList', logo: '/img/platforms/angellist.png', job: 'SPVs & syndicates', fit: 'Raising on AngelList? Your LPs show up already verified, with a letter to match.' },
+  { name: 'Affinity', logo: '/img/platforms/affinity.png', job: 'Dealflow CRM', fit: 'Track the relationship in Affinity. Savy clears the investor before the close.' },
+  { name: 'Juniper Square', logo: '/img/platforms/junipersquare.png', job: 'LP portal & fund admin', fit: 'Onboard LPs in Juniper Square with accreditation already done.' },
+]
+
 const STEPS = [
   { icon: Send, title: 'Invite', body: 'Send your LPs one Savy link. No account setup on your side.' },
   { icon: FileCheck2, title: 'Verify', body: 'Investors connect accounts or upload documents once. Savy\u2019s AI reviews them in minutes.' },
@@ -133,6 +142,26 @@ export default function Landing() {
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* Works alongside */}
+      <section className="mx-auto max-w-6xl px-5 pt-16 sm:px-8">
+        <p className="text-center text-[15px] font-semibold text-ink-2">Works alongside the platforms you already run your fund on</p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {PLATFORMS.map((x, i) => (
+            <motion.div key={x.name} {...inView} transition={{ delay: i * 0.05 }} className="border border-line bg-raised p-5 shadow-card">
+              <div className="flex items-center gap-3">
+                <img src={x.logo} alt={`${x.name} logo`} width={28} height={28} className="size-7 rounded-[6px]" loading="lazy" />
+                <div>
+                  <p className="text-[17px] font-semibold text-ink">{x.name}</p>
+                  <p className="text-[13px] text-ink-3">{x.job}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-[15px] leading-relaxed text-ink-2">{x.fit}</p>
+            </motion.div>
+          ))}
+        </div>
+        <p className="mt-4 text-center text-[12px] text-ink-3">Carta, AngelList, Affinity and Juniper Square are trademarks of their respective owners. Savy is not affiliated with or endorsed by them.</p>
       </section>
 
       {/* Problem */}
