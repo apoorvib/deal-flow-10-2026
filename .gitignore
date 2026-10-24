@@ -25,3 +25,12 @@ dist-ssr
 
 .env
 .env.local
+
+# Python backend
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Dev case data persisted by api/store.py — local only, not fixtures to ship.
+fixtures/live/
