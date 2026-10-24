@@ -6,6 +6,7 @@
 # BrokerCheck automation) without touching these signatures.
 
 import datetime
+import os
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
@@ -19,7 +20,7 @@ from api.models import (
     AccountLink,
     AccountLinkRequest,
     ApplicationInput,
-    Check,
+    AuditLogEntry,
     Evaluation,
     Fund,
     KycRequest,
@@ -30,6 +31,7 @@ from api.models import (
     Passport,
     PassportEnvelope,
     PassportLookupRequest,
+    PassportLookupResponse,
     ShareRequest,
     ShareView,
     Verification,
@@ -57,7 +59,15 @@ async def http_error(_: Request, exc: HTTPException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_error(_: Request, exc: RequestValidationError):
-    return JSONResponse(status_code=422, content={"error": str(exc.errors()[:2])})
+    # Pydantic's exc.errors() entries are dicts like {"loc": ("body", "legalName"),
+    # "msg": "Field required", ...}. str()-ing the list sends the client a raw
+    # Python repr; join the location path and message into one readable string.
+    messages = []
+    for err in exc.errors()[:2]:
+        loc = ".".join(str(part) for part in err.get("loc", ()))
+        msg = err.get("msg", "invalid value")
+        messages.append(f"{loc}: {msg}" if loc else msg)
+    return JSONResponse(status_code=422, content={"error": "; ".join(messages)})
 
 
 @app.exception_handler(Exception)
@@ -67,6 +77,14 @@ async def unhandled(_: Request, exc: Exception):
 
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _actor() -> str:
+    """There is no authentication in this build, so there is no real reviewer
+    identity to record. REVIEWER_IDENTITY lets an operator configure one
+    (e.g. for a staffed sandbox); absent that, record the honest label rather
+    than fabricate a plausible-looking human name."""
+    return os.environ.get("REVIEWER_IDENTITY") or "unauthenticated-sandbox-signoff"
 
 
 # Static reference data (spec: funds are not user-created in this slice).
@@ -194,16 +212,33 @@ def get_verification(verification_id: str) -> Verification:
 
 
 @app.post("/verifications/{verification_id}/sign-off")
-def post_sign_off(verification_id: str) -> Verification:
+def post_sign_off(verification_id: str, request: Request) -> Verification:
     v = store.get("verifications", verification_id, Verification)
     if v is None:
         raise HTTPException(404, "Verification not found")
     if v.evaluation.decision != "review":
         raise HTTPException(409, "Only cases in review can be signed off.")
+    decision_before = v.evaluation.decision
     v.evaluation = Evaluation(decision="approved", checks=v.evaluation.checks, reasons=[])
     v.reviewed_at = _now()
     _issue_passport(v)
     store.put("verifications", v.id, v)
+
+    # Audit trail is deliberately not part of Verification (types.ts has no
+    # reviewedBy field, and that's binding) — it's a separate, append-only record
+    # of who/what performed the action, kept in its own store collection.
+    entry = AuditLogEntry(
+        id=new_id("audit"),
+        verification_id=v.id,
+        action="sign_off",
+        at=v.reviewed_at,
+        decision_before=decision_before,
+        decision_after=v.evaluation.decision,
+        actor=_actor(),
+        request_source=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    store.put("audit_log", entry.id, entry)
     return v
 
 
@@ -222,7 +257,7 @@ def get_passport(passport_id: str) -> PassportEnvelope:
 
 
 @app.post("/passports/lookup")
-def post_passport_lookup(body: PassportLookupRequest):
+def post_passport_lookup(body: PassportLookupRequest) -> PassportLookupResponse | None:
     ref = body.letter_ref.strip().upper()
     email = body.email.strip().lower()
     for p in store.all_of("passports", Passport):
@@ -230,7 +265,7 @@ def post_passport_lookup(body: PassportLookupRequest):
             continue
         v = store.get("verifications", p.verification_id, Verification)
         if v and v.input.profile.email.strip().lower() == email:
-            return {"passportId": p.id}
+            return PassportLookupResponse(passport_id=p.id)
     return None
 
 

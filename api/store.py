@@ -30,6 +30,13 @@ def _read(collection: str) -> dict:
         return {}
 
 
+# NOTE: put()/delete() are read-modify-write with no file lock. Two concurrent
+# writers to the same collection can race and one update can be lost. Fine for a
+# single-process dev/demo server; a later task adding background jobs or multiple
+# workers should add locking (e.g. a per-collection file lock) before relying on
+# this for anything concurrent.
+
+
 def put(collection: str, key: str, model: BaseModel) -> None:
     data = _read(collection)
     data[key] = model.model_dump(by_alias=True, mode="json")

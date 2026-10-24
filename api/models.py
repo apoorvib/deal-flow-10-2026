@@ -245,3 +245,23 @@ class PassportEnvelope(Base):
 
 class ShareRequest(Base):
     fund_id: str
+
+
+class AuditLogEntry(Base):
+    """A durable record of a state-changing action on a verification, independent of
+    the Verification record itself (so the audit trail survives even if the
+    verification is later overwritten). Kept flat and span-shaped on purpose: a
+    later task adding PRISM tracing should be able to emit this as a span's
+    attributes without reshaping it — `at` as the span timestamp, `action` as the
+    span name, everything else as attributes.
+    """
+
+    id: str
+    verification_id: str
+    action: str
+    at: str
+    decision_before: Decision
+    decision_after: Decision
+    actor: str
+    request_source: Optional[str] = None
+    user_agent: Optional[str] = None
