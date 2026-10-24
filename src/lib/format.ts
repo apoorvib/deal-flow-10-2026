@@ -4,11 +4,14 @@ export const usd = (n: number) =>
 export const compactUsd = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 })
 
+// Date-only strings ("2026-12-15") parse as UTC midnight and would render a day early west of UTC.
+const toDate = (iso: string) => new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso)
+
 export const longDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  toDate(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
 export const shortDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  toDate(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export const dateTime = (iso: string) =>
   new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })

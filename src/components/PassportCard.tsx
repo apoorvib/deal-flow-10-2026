@@ -60,7 +60,7 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
   const tilt = interactive && !reduce
 
   return (
-    <div className={cn('[perspective:1400px]', className)}>
+    <div className={cn('text-left [perspective:1400px]', className)}>
       <motion.div
         ref={ref}
         onPointerMove={(e) => {
