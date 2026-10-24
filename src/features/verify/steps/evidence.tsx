@@ -3,7 +3,9 @@ import { Check, CircleCheck, CircleX, Link2, Loader2, Search } from 'lucide-reac
 import { AnimatePresence, motion } from 'motion/react'
 import { Dialog } from 'radix-ui'
 import { useId, useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
+import { actionError } from '../../../components/ui/notice'
 import { Field, Input, MoneyInput } from '../../../components/ui/field'
 import { Checkbox } from '../../../components/ui/misc'
 import { api, isMock, type AccountScenario } from '../../../lib/api/client'
@@ -211,6 +213,8 @@ function AccountLinker() {
       const l = await api.linkAccounts(scenario)
       dispatch({ type: 'patch', patch: { accountLink: l } })
       setOpen(false)
+    } catch (e) {
+      toast.error('Couldn’t link your accounts', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(null)
     }
@@ -328,6 +332,8 @@ function LicenseEvidence() {
     setBusy(true)
     try {
       set({ lookup: await api.checkLicense(lic.type, lic.crd) })
+    } catch (e) {
+      toast.error('Couldn’t reach BrokerCheck', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(false)
     }
@@ -443,6 +449,8 @@ function AdviserEvidence() {
     setBusy(true)
     try {
       set({ lookup: await api.checkAdviser(a.fileNumber.trim()) })
+    } catch (e) {
+      toast.error('Couldn’t look up that adviser', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(false)
     }

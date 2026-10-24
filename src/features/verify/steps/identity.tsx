@@ -1,7 +1,9 @@
 import { AlertTriangle, Camera, RotateCcw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
+import { actionError } from '../../../components/ui/notice'
 import { api, isMock, type KycScenario } from '../../../lib/api/client'
 import { cn } from '../../../lib/cn'
 import { useDraft } from '../draft'
@@ -25,6 +27,8 @@ export function IdentityStep({ onDone }: { onDone: () => void }) {
       dispatch({ type: 'patch', patch: { kyc: s } })
       // A clean pass needs nothing else from the LP, so move on by itself.
       if (s.status === 'verified') setTimeout(() => done.current(), 900)
+    } catch (e) {
+      toast.error('Couldn’t start identity check', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(false)
     }

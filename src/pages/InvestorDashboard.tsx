@@ -12,6 +12,7 @@ import { useAuth } from '../lib/auth'
 import { daysUntil, longDate, shortDate, usd } from '../lib/format'
 import { PATHWAY_LABEL, type Fund, type FundingAccount, type Investment, type InvestmentStatus, type Passport, type Share } from '../lib/types'
 import { InvestorDashboardSkeleton, RowsSkeleton, Skeleton } from '../components/ui/skeleton'
+import { Notice } from '../components/ui/notice'
 
 const STATUS: Record<InvestmentStatus, { label: string; tone: 'brass' | 'ok' | 'neutral' }> = {
   committed: { label: 'Committed', tone: 'brass' },
@@ -27,7 +28,9 @@ export default function InvestorDashboard() {
   const [funds, setFunds] = useState<Fund[]>([])
   const [accounts, setAccounts] = useState<FundingAccount[]>([])
   const [funding, setFunding] = useState<Investment | null>(null)
-  const loadAccounts = () => api.listFundingAccounts().then(setAccounts, () => {})
+  const [accountsError, setAccountsError] = useState<unknown>(null)
+  const [investmentsError, setInvestmentsError] = useState<unknown>(null)
+  const loadAccounts = () => api.listFundingAccounts().then((a) => (setAccounts(a), setAccountsError(null)), setAccountsError)
 
   useEffect(() => {
     if (!user) return
@@ -35,7 +38,7 @@ export default function InvestorDashboard() {
       api.getPassport(user.passportId).then(setPassport, () => setPassport(null))
       api.listShares(user.passportId).then(setShares, () => {})
     } else setPassport(null)
-    api.listInvestments().then(setInvestments, () => setInvestments([]))
+    api.listInvestments().then(setInvestments, (e) => (setInvestmentsError(e), setInvestments([])))
     api.listFunds().then(setFunds, () => {})
     loadAccounts()
   }, [user])
@@ -107,7 +110,11 @@ export default function InvestorDashboard() {
               </Link>
             )}
           </div>
-          {investments === null ? (
+          {investmentsError ? (
+            <div className="border-t border-line p-5">
+              <Notice error={investmentsError} what="Investments" />
+            </div>
+          ) : investments === null ? (
             <RowsSkeleton rows={3} />
           ) : investments.length === 0 ? (
             <p className="border-t border-line px-6 py-10 text-center text-[16px] text-ink-3">{passport ? 'No investments yet.' : 'Your investments appear here once you’re verified.'}</p>
@@ -151,7 +158,7 @@ export default function InvestorDashboard() {
         </section>
 
         <div className="mt-8">
-          <FundingAccounts accounts={accounts} onChange={loadAccounts} />
+          {accountsError ? <Notice error={accountsError} what="Funding accounts" onRetry={loadAccounts} /> : <FundingAccounts accounts={accounts} onChange={loadAccounts} />}
         </div>
 
         {/* Funds with access */}

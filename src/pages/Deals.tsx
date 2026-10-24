@@ -13,6 +13,7 @@ import { compactUsd, dateTime, shortDate } from '../lib/format'
 import type { Fund, Passport, Share } from '../lib/types'
 import { PATHWAY_LABEL } from '../lib/types'
 import { DealsSkeleton } from '../components/ui/skeleton'
+import { Notice, actionError } from '../components/ui/notice'
 
 export default function Deals() {
   const { id = '' } = useParams()
@@ -21,12 +22,13 @@ export default function Deals() {
   const [shares, setShares] = useState<Share[]>([])
   const [confirming, setConfirming] = useState<Fund | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const { user } = useAuth()
 
   useEffect(() => {
     api.getPassport(id).then(setPassport, () => {})
-    api.listFunds().then(setFunds)
-    api.listShares(id).then(setShares)
+    api.listFunds().then(setFunds, setLoadError)
+    api.listShares(id).then(setShares, () => {})
   }, [id])
 
   const share = async (f: Fund) => {
@@ -37,16 +39,20 @@ export default function Deals() {
       setConfirming(null)
       toast.success(`Shared with ${f.name}`, { description: 'Their compliance team can now confirm your status.' })
     } catch (e) {
-      toast.error('Couldn’t share', { description: e instanceof Error ? e.message : undefined })
+      toast.error('Couldn’t share', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(false)
     }
   }
 
   const revoke = async (s: Share, f: Fund) => {
-    await api.revokeShare(id, s.id)
-    setShares((x) => x.filter((y) => y.id !== s.id))
-    toast(`Access removed for ${f.name}`)
+    try {
+      await api.revokeShare(id, s.id)
+      setShares((x) => x.filter((y) => y.id !== s.id))
+      toast(`Access removed for ${f.name}`)
+    } catch (e) {
+      toast.error('Couldn’t remove access', { description: actionError(e, 'Try again in a moment.') })
+    }
   }
 
   return (
@@ -57,7 +63,7 @@ export default function Deals() {
       <h1 className="display mt-4 text-[clamp(30px,4.4vw,44px)] leading-[1.05] text-ink">Open allocations</h1>
       <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink-2">These funds accept your passport. Sharing gives their compliance team your verified status, so you can skip their accreditation paperwork.</p>
 
-      {!funds && <DealsSkeleton />}
+      {loadError ? <Notice className="mt-10" error={loadError} what="Open allocations" onRetry={() => { setLoadError(null); api.listFunds().then(setFunds, setLoadError) }} /> : !funds && <DealsSkeleton />}
       <ul className="mt-10 grid gap-3">
 
         {funds?.filter((f) => f.id !== user?.fundId).map((f, i) => {

@@ -17,6 +17,7 @@ import { cn } from '../lib/cn'
 import { compactUsd, dateTime, daysUntil, longDate, shortDate, usd } from '../lib/format'
 import { INVESTOR_TYPE_LABEL, PATHWAY_LABEL, type Fund, type IncomingInvestor, type IncomingStatus, type IssuerOverview, type Passport } from '../lib/types'
 import { FundDashboardSkeleton, Skeleton } from '../components/ui/skeleton'
+import { Notice, actionError } from '../components/ui/notice'
 
 const STATUS: Record<IncomingStatus, { label: string; tone: 'ok' | 'warn' | 'neutral' | 'danger' }> = {
   verified: { label: 'Cleared', tone: 'ok' },
@@ -42,10 +43,13 @@ export default function FundDashboard() {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<IncomingInvestor | null>(null)
   const [inviting, setInviting] = useState(false)
+  const [loadError, setLoadError] = useState<unknown>(null)
+  const load = () => {
+    setLoadError(null)
+    api.getIssuerOverview().then(setData, setLoadError)
+  }
 
-  useEffect(() => {
-    api.getIssuerOverview().then(setData)
-  }, [])
+  useEffect(load, [])
 
   const rows = useMemo(() => {
     if (!data) return []
@@ -54,6 +58,14 @@ export default function FundDashboard() {
     return data.investors.filter((i) => f.match(i.status) && (!needle || i.name.toLowerCase().includes(needle)))
   }, [data, filter, q])
 
+  if (loadError)
+    return (
+      <div className="min-h-[60vh] bg-surface">
+        <div className="mx-auto max-w-6xl px-5 pt-12 sm:px-8">
+          <Notice error={loadError} what="Your fund dashboard" onRetry={load} />
+        </div>
+      </div>
+    )
   if (!data) return <FundDashboardSkeleton />
 
   const inv = data.investors
@@ -63,9 +75,13 @@ export default function FundDashboard() {
   const totalAmt = inv.reduce((n, i) => n + i.commitment, 0)
 
   const nudge = async (list: IncomingInvestor[]) => {
-    await Promise.all(list.map((i) => api.nudgeInvestor(i.id)))
-    toast.success(list.length === 1 ? `Reminder sent to ${list[0].name}` : `Reminders sent to ${list.length} investors`)
-    setData(await api.getIssuerOverview())
+    try {
+      await Promise.all(list.map((i) => api.nudgeInvestor(i.id)))
+      toast.success(list.length === 1 ? `Reminder sent to ${list[0].name}` : `Reminders sent to ${list.length} investors`)
+      setData(await api.getIssuerOverview())
+    } catch (e) {
+      toast.error('Couldn’t send reminders', { description: actionError(e, 'Try again in a moment.') })
+    }
   }
 
   return (
@@ -335,7 +351,10 @@ function InvestorSheet({ investor: i, onClose, onNudge, fundName }: { investor: 
                           expiresAt: i.expiresAt!,
                           checks: i.checks,
                           recipient: fundName,
-                        }).then(() => toast.success('Letter downloaded'))
+                        }).then(
+                          () => toast.success('Letter downloaded'),
+                          () => toast.error('Couldn’t create the letter'),
+                        )
                       }
                     >
                       <FileDown className="size-4" /> Verification letter

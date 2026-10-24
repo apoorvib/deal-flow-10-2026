@@ -8,6 +8,7 @@ import { cn } from '../../lib/cn'
 import { shortDate } from '../../lib/format'
 import type { Integration, IntegrationId } from '../../lib/types'
 import { Skeleton } from '../../components/ui/skeleton'
+import { Notice, actionError } from '../../components/ui/notice'
 
 export const PLATFORMS: Record<IntegrationId, { name: string; logo: string; job: string }> = {
   carta: { name: 'Carta', logo: '/img/platforms/carta.png', job: 'Cap tables & fund admin' },
@@ -18,17 +19,19 @@ export const PLATFORMS: Record<IntegrationId, { name: string; logo: string; job:
 
 function useIntegrations() {
   const [list, setList] = useState<Integration[] | null>(null)
+  const [error, setError] = useState<unknown>(null)
   useEffect(() => {
-    api.listIntegrations().then(setList, () => setList([]))
+    api.listIntegrations().then(setList, setError)
   }, [])
   const replace = (next: Integration) => setList((xs) => xs?.map((x) => (x.id === next.id ? next : x)) ?? xs)
-  return { list, replace }
+  return { list, replace, error }
 }
 
 /** Full manager, for Settings: connect, disconnect, and choose what syncs. */
 export function IntegrationsManager() {
-  const { list, replace } = useIntegrations()
+  const { list, replace, error } = useIntegrations()
   const [busy, setBusy] = useState<IntegrationId | null>(null)
+  if (error) return <Notice error={error} what="Platform integrations" />
   if (!list)
     return (
       <div className="space-y-4" role="status" aria-busy="true" aria-label="Loading">
@@ -50,6 +53,8 @@ export function IntegrationsManager() {
     try {
       replace(await fn())
       if (message) toast.success(message)
+    } catch (e) {
+      toast.error('Couldn’t update the integration', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(null)
     }
@@ -116,7 +121,9 @@ function Sync({ label, on, onChange }: { label: string; on: boolean; onChange: (
 
 /** Compact row for the fund dashboard. */
 export function IntegrationsRow() {
-  const { list } = useIntegrations()
+  const { list, error } = useIntegrations()
+  // The dashboard row is a shortcut; if the backend has no integrations yet, leave it out.
+  if (error) return null
   if (!list) return <Skeleton className="mt-5 h-[58px]" />
   const connected = list.filter((x) => x.connected)
   return (

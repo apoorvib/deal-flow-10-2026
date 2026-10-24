@@ -4,6 +4,7 @@ import { Field, Input } from '../../../components/ui/field'
 import { cn } from '../../../lib/cn'
 import type { EntityKind, InvestorType, Profile } from '../../../lib/types'
 import { useDraft } from '../draft'
+import { MIN_PASSWORD, useAccount } from '../account'
 
 const TYPES: { id: InvestorType; label: string; icon: typeof User }[] = [
   { id: 'individual', label: 'Just me', icon: User },
@@ -49,6 +50,7 @@ export function ProfileStep() {
   const p = draft.profile
   const set = (patch: Partial<Profile>) => dispatch({ type: 'profile', patch })
   const entity = draft.investorType === 'entity'
+  const account = useAccount()
 
   return (
     <div className="grid gap-6">
@@ -58,9 +60,22 @@ export function ProfileStep() {
       <Field label="Full legal name" hint="As shown on your ID">
         <Input autoComplete="name" value={p.legalName} onChange={(e) => set({ legalName: e.target.value })} />
       </Field>
-      <Field label="Email">
-        <Input type="email" autoComplete="email" inputMode="email" value={p.email} onChange={(e) => set({ email: e.target.value })} />
+      <Field label="Email" hint={account.lockedEmail ? 'The email on your account' : undefined}>
+        <Input
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          value={p.email}
+          readOnly={!!account.lockedEmail}
+          className={account.lockedEmail ? 'bg-surface text-ink-3' : undefined}
+          onChange={(e) => set({ email: e.target.value })}
+        />
       </Field>
+      {account.needsAccount && (
+        <Field label="Create a password" hint={`At least ${MIN_PASSWORD} characters. You'll use it to sign in and track your passport.`}>
+          <Input type="password" autoComplete="new-password" value={account.password} onChange={(e) => account.setPassword(e.target.value)} />
+        </Field>
+      )}
       <AnimatePresence initial={false}>
         {entity && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="grid gap-6 overflow-hidden">

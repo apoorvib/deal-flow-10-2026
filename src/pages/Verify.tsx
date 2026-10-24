@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { clearDraft, DraftProvider, minutesLeft, STEPS, stepBlocker, toApplication, useDraft, type StepId } from '../features/verify/draft'
+import { AccountProvider, MIN_PASSWORD, useAccount } from '../features/verify/account'
 import { STEP_CONTENT } from '../features/verify/steps'
 import { SubmitOverlay } from '../features/verify/SubmitOverlay'
 import { api } from '../lib/api/client'
@@ -15,7 +16,9 @@ import { getSession, setSession } from '../lib/session'
 export default function Verify() {
   return (
     <DraftProvider>
-      <Wizard />
+      <AccountProvider>
+        <Wizard />
+      </AccountProvider>
     </DraftProvider>
   )
 }
@@ -23,6 +26,13 @@ export default function Verify() {
 function Wizard() {
   const { draft, dispatch } = useDraft()
   const { refresh, user } = useAuth()
+  const account = useAccount()
+  const [accountError, setAccountError] = useState<string | null>(null)
+
+  // Signed in: the backend only accepts applications under the session's own email.
+  useEffect(() => {
+    if (account.lockedEmail && draft.profile.email !== account.lockedEmail) dispatch({ type: 'profile', patch: { email: account.lockedEmail } })
+  }, [account.lockedEmail, draft.profile.email, dispatch])
   const navigate = useNavigate()
   const index = STEPS.findIndex((s) => s.id === draft.step)
   const step = STEPS[index]
@@ -76,6 +86,21 @@ function Wizard() {
   const next = async (e?: FormEvent) => {
     e?.preventDefault()
     if (blocker) return setAttempted(true)
+    if (step.id === 'profile' && account.needsAccount) {
+      if (account.password.length < MIN_PASSWORD) {
+        setAccountError(`Use at least ${MIN_PASSWORD} characters for your password.`)
+        return setAttempted(true)
+      }
+      setAccountError(null)
+      try {
+        await api.register(draft.profile.legalName.trim(), draft.profile.email.trim(), account.password, 'investor')
+        account.setPassword('')
+        await refresh()
+      } catch (err) {
+        setAccountError(err instanceof Error ? err.message : 'Couldn’t create your account.')
+        return setAttempted(true)
+      }
+    }
     if (!last) return go(STEPS[index + 1].id)
     setSubmitting(true)
     try {
@@ -137,9 +162,17 @@ function Wizard() {
         </AnimatePresence>
 
         <AnimatePresence>
-          {attempted && blocker && (
+          {attempted && (accountError || blocker) && (
             <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-6 text-[15px] text-danger" role="alert">
-              {blocker}
+              {accountError ?? blocker}
+              {accountError?.includes('already exists') && (
+                <>
+                  {' '}
+                  <a href="/signin?next=/verify" className="link font-semibold">
+                    Sign in
+                  </a>
+                </>
+              )}
             </motion.p>
           )}
         </AnimatePresence>

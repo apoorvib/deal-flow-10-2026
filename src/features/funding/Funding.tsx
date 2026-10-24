@@ -9,6 +9,7 @@ import { api, isMock } from '../../lib/api/client'
 import { cn } from '../../lib/cn'
 import { usd } from '../../lib/format'
 import type { FundingAccount, Investment } from '../../lib/types'
+import { actionError } from '../../components/ui/notice'
 
 const INSTITUTIONS = ['Chase', 'Bank of America', 'Wells Fargo', 'Citi', 'J.P. Morgan Private Bank', 'Morgan Stanley', 'Charles Schwab', 'Fidelity', 'First Republic', 'SVB']
 
@@ -65,6 +66,8 @@ export function FundingAccounts({ accounts, onChange }: { accounts: FundingAccou
       toast.success(`${inst} connected`)
       setOpen(false)
       onChange()
+    } catch (e) {
+      toast.error('Couldn’t connect that bank', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(null)
     }
@@ -103,7 +106,7 @@ export function FundingAccounts({ accounts, onChange }: { accounts: FundingAccou
               </div>
               <button
                 type="button"
-                onClick={() => api.removeFundingAccount(a.id).then(onChange)}
+                onClick={() => api.removeFundingAccount(a.id).then(onChange, (e) => toast.error('Couldn’t remove the account', { description: actionError(e, 'Try again.') }))}
                 className="rounded-[4px] p-2 text-ink-3 transition-colors hover:bg-ink/5 hover:text-danger"
                 aria-label={`Remove ${a.institution} •••• ${a.last4}`}
               >
@@ -156,7 +159,7 @@ export function FundDialog({ investment, accounts, onClose, onFunded }: { invest
       toast.success(`${usd(inv.amount)} sent to ${inv.fundName}`)
       onFunded(inv)
     } catch (e) {
-      toast.error('Couldn’t send funds', { description: e instanceof Error ? e.message : undefined })
+      toast.error('Couldn’t send funds', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(false)
     }

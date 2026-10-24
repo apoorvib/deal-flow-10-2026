@@ -123,6 +123,8 @@ function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => voi
   const figure = doc.income != null ? { k: doc.taxYear ? `${doc.taxYear} income` : 'Income', v: usd(doc.income) } : doc.balance != null ? { k: 'Balance', v: usd(doc.balance) } : null
   const pct = Math.round(doc.confidence * 100)
   const weak = doc.confidence < THRESHOLDS.reviewConfidence || doc.flags.length > 0
+  const degraded = doc.flags.some((f) => f.startsWith('Automated review incomplete'))
+  const flags = doc.flags.filter((f) => !f.startsWith('Automated review incomplete'))
   return (
     <div className={cn('rounded-xl border bg-raised px-4 py-3.5', weak ? 'border-warn/40' : 'border-line')}>
       <div className="flex items-start gap-3">
@@ -131,6 +133,7 @@ function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => voi
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-[15px] font-medium text-ink">{DOC_LABEL[doc.docType]}</span>
             <span className="truncate text-[14px] text-ink-3">{doc.fileName}</span>
+            {degraded && <span className="rounded-full bg-warn-soft px-2 py-0.5 text-[12px] font-semibold text-warn">Review incomplete</span>}
           </div>
           <dl className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
             {figure && <Pair k={figure.k} v={figure.v} />}
@@ -146,9 +149,14 @@ function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => voi
               </dd>
             </div>
           </dl>
-          {doc.flags.length > 0 && (
+          {flags.length > 0 && (
             <p className="mt-2.5 flex items-start gap-1.5 text-[14px] text-warn">
-              <AlertTriangle className="mt-px size-3.5 shrink-0" /> {doc.flags.join(' · ')}. We’ll double-check this.
+              <AlertTriangle className="mt-px size-3.5 shrink-0" /> {flags.join(' · ')}. We’ll double-check this.
+            </p>
+          )}
+          {degraded && (
+            <p className="mt-2.5 flex items-start gap-1.5 text-[14px] text-ink-2">
+              <AlertTriangle className="mt-px size-3.5 shrink-0 text-warn" /> Our AI couldn’t finish reading this one, so it goes to review. You can still continue.
             </p>
           )}
         </div>

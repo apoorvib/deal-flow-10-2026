@@ -9,6 +9,8 @@ import logo from '../../assets/savy-logo.png'
 import { api, isMock } from '../../lib/api/client'
 import { BRAND } from '../../lib/brand'
 import type { Fund, Invite } from '../../lib/types'
+import { toast } from 'sonner'
+import { actionError } from '../../components/ui/notice'
 
 const parseEmails = (raw: string) =>
   [...new Set(raw.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))]
@@ -40,6 +42,8 @@ export function InviteDialog({ fund, open, onOpenChange, onSent }: { fund: Fund;
       const res = await api.inviteInvestors(emails.map((email) => ({ email, commitment: commitment ?? undefined })))
       setSent({ invites: res.invites, links: res.devLinks ?? {} })
       onSent()
+    } catch (e) {
+      toast.error('Couldn’t send invitations', { description: actionError(e, 'Try again in a moment.') })
     } finally {
       setBusy(false)
     }

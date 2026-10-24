@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ChecksList } from '../components/ChecksList'
+import { EvidencePanel } from '../components/EvidencePanel'
 import { PassportCard } from '../components/PassportCard'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/misc'
@@ -72,6 +73,8 @@ export default function Status() {
         </div>
         <ChecksList checks={v.evaluation.checks} className="mt-4" />
       </section>
+
+      <EvidencePanel className="mt-10" checks={v.evaluation.checks} pathway={v.input.pathway} investorType={v.input.investorType} />
     </div>
   )
 }

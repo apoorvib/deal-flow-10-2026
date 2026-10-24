@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import type { Role, UserSettings } from '../lib/types'
 import { PageShellSkeleton, SettingsSkeleton } from '../components/ui/skeleton'
+import { Notice, actionError } from '../components/ui/notice'
 
 /** Which notification switches each account type gets. Keys match the backend's notification settings. */
 export const SETTINGS_NOTIFICATIONS: Record<Role, { key: string; label: string; hint: string }[]> = {
@@ -30,22 +31,30 @@ export default function Settings() {
   const { user, loading, refresh } = useAuth()
   const [s, setS] = useState<UserSettings | null>(null)
   const [name, setName] = useState('')
+  const [loadError, setLoadError] = useState<unknown>(null)
 
   useEffect(() => {
     if (!user) return
-    api.getSettings().then((x) => {
-      setS(x)
-      setName(x.name)
-    })
+    api.getSettings().then(
+      (x) => {
+        setS(x)
+        setName(x.name)
+      },
+      setLoadError,
+    )
   }, [user])
 
   if (loading) return <PageShellSkeleton />
   if (!user) return <Navigate to="/signin?next=/settings" replace />
 
   const update = async (patch: Partial<Omit<UserSettings, 'email'>>, message = 'Saved') => {
-    const next = await api.updateSettings(patch)
-    setS(next)
-    toast.success(message)
+    try {
+      const next = await api.updateSettings(patch)
+      setS(next)
+      toast.success(message)
+    } catch (e) {
+      toast.error('Couldn’t save', { description: actionError(e, 'Try again in a moment.') })
+    }
   }
 
   return (
@@ -53,7 +62,16 @@ export default function Settings() {
       <div className="mx-auto max-w-3xl px-5 pt-10 pb-6 sm:px-8 sm:pt-12">
         <h1 className="display text-[clamp(30px,4vw,40px)] text-ink">Settings</h1>
 
-        {!s ? (
+        {loadError ? (
+          <div className="mt-8 grid gap-5">
+            <Notice error={loadError} what="Account settings" />
+            {user.role === 'issuer' && (
+              <div id="integrations" className="scroll-mt-6 border border-line bg-raised p-6 shadow-card">
+                <IntegrationsManager />
+              </div>
+            )}
+          </div>
+        ) : !s ? (
           <SettingsSkeleton />
         ) : (
           <div className="mt-8 grid gap-5">
@@ -139,7 +157,7 @@ function PasswordForm() {
       setNext('')
       toast.success('Password updated')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Couldn’t update your password.')
+      setError(actionError(err, 'Couldn’t update your password.'))
     } finally {
       setBusy(false)
     }

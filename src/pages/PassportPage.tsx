@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ChecksList } from '../components/ChecksList'
+import { EvidencePanel } from '../components/EvidencePanel'
 import { PassportCard } from '../components/PassportCard'
 import { Button } from '../components/ui/button'
 import { Badge, Card } from '../components/ui/misc'
@@ -151,6 +152,7 @@ export default function PassportPage() {
         <h2 className="text-[16px] font-medium text-ink">Audit trail</h2>
         <p className="mt-1 text-[15px] text-ink-3">The checks behind your letter. Funds can request this file as evidence of reasonable steps under Rule 506(c).</p>
         <ChecksList checks={p.checks} className="mt-5" />
+        <EvidencePanel className="mt-10" checks={p.checks} pathway={p.pathway} investorType={p.investorType} />
       </section>
     </div>
   )

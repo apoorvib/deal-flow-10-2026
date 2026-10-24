@@ -104,6 +104,9 @@ export interface Api {
 
 export { ApiError }
 
+/** True when the backend doesn't implement the endpoint (yet). */
+export const isUnavailable = (e: unknown) => e instanceof ApiError && e.unavailable
+
 const BASE = import.meta.env.VITE_API_BASE_URL as string | undefined
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -113,7 +116,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: 'include',
   })
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new ApiError(res.status, (body as { error?: string }).error ?? res.statusText)
+  if (!res.ok) {
+    const b = body as { error?: string; detail?: string }
+    // A route the backend hasn't built yet comes back as the framework's bare 404/405 ({detail}), not our
+    // {error} envelope. Surface that as "unavailable" so the UI can degrade instead of failing loudly.
+    if ((res.status === 404 || res.status === 405) && !b.error && b.detail) throw new ApiError(res.status, 'This feature isn’t available yet.', true)
+    throw new ApiError(res.status, b.error ?? res.statusText)
+  }
   return body as T
 }
 
