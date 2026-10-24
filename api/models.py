@@ -39,6 +39,10 @@ Decision = Literal["approved", "review", "needs_info", "denied"]
 KycStatus = Literal["verified", "failed"]
 AccountKind = Literal["checking", "savings", "brokerage", "retirement"]
 Offering = Literal["506(c)", "506(b)"]
+Role = Literal["investor", "issuer", "admin"]
+InvestmentStatus = Literal["committed", "funded", "closed"]
+IncomingStatus = Literal["verified", "review", "needs_info", "expired", "invited"]
+AdminView = Literal["admin", "investor", "issuer", "visitor"]
 
 
 # --- Models (order matches types.ts) ----------------------------------------
@@ -204,6 +208,59 @@ class Share(Base):
     fund_id: str
     created_at: str
     views: List[ShareView]
+
+
+class User(Base):
+    id: str
+    name: str
+    email: str
+    role: Role
+    passport_id: Optional[str] = None
+    fund_id: Optional[str] = None
+
+
+class Investment(Base):
+    id: str
+    fund_id: str
+    fund_name: str
+    manager: str
+    amount: float
+    status: InvestmentStatus
+    committed_at: str
+
+
+class IncomingCheck(Base):
+    id: str
+    label: str
+    result: CheckResult
+
+
+class IncomingInvestor(Base):
+    id: str
+    name: str
+    email: str
+    investor_type: InvestorType
+    status: IncomingStatus
+    pathway: Optional[Pathway]
+    verified_at: Optional[str]
+    expires_at: Optional[str]
+    letter_ref: Optional[str]
+    commitment: float
+    last_activity_at: str
+    checks: List[IncomingCheck]
+
+
+class IssuerOverview(Base):
+    fund: Fund
+    invite_url: str
+    investors: List[IncomingInvestor]
+
+
+class AdminContext(Base):
+    admin: User
+    viewing_as: AdminView
+    investor: User
+    issuer: User
 
 
 # --- Request/response shapes not in types.ts but needed by the routes ------

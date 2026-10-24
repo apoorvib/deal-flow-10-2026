@@ -57,6 +57,8 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 
 `IncomingInvestor` is what a fund sees about an investor: status, basis, dates, letter reference and check outcomes (`pass`/`warn`/`fail`). It must never carry balances, income or net worth.
 
+Authentication uses Supabase PostgreSQL. Install backend packages from `requirements.txt`, configure the server-only `DATABASE_URL` in `.env` (never a `VITE_` variable), set `COOKIE_SECURE=1` behind HTTPS, apply `api/migrations/001_auth.sql`, and run FastAPI. Use the URI from Supabase Connect → Direct → Session pooler. The backend requires SSL. Marketplace listing does not host the DB. Password reset, email verification, and MFA are not in this MVP.
+
 The backend owns every decision. `src/lib/rules.ts` mirrors the thresholds only to show early hints in forms. The UI never sends figures for a document; it references uploaded documents by id.
 
 ## Stack

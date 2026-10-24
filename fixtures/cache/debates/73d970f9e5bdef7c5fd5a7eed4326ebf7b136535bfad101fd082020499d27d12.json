@@ -1,0 +1,31 @@
+{
+  "docType": "bank_statement",
+  "adjudication": {
+    "fields": {
+      "holderName": {
+        "value": "Robert Specimen",
+        "confidence": 0.99,
+        "sourceQuote": "Robert Specimen"
+      },
+      "balance": {
+        "value": 702461.77,
+        "confidence": 0.99,
+        "sourceQuote": "Closing balance: $702,461.77"
+      },
+      "statementDate": {
+        "value": "2026-09-30",
+        "confidence": 0.99,
+        "sourceQuote": "September 30, 2026"
+      }
+    },
+    "confidence": 0.96,
+    "flags": [
+      "Closing balance arithmetic does not reconcile: opening + deposits - withdrawals equals $452,461.77, but the document states $702,461.77.",
+      "Statement generated August 14, 2026 precedes the September 1-30, 2026 statement period."
+    ],
+    "summary": "Bank statement ending 2026-09-30, $702,461.77 closing balance.",
+    "trustAssessment": "The document contains two unresolved internal defects."
+  },
+  "turns": [],
+  "seconds": 0.0
+}

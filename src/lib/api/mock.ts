@@ -605,6 +605,19 @@ const rawApi: Api = {
     delete db.shares[sid]
     save()
   },
+  async register(name, email, _password, role) {
+    await wait(500)
+    const normalized = email.trim().toLowerCase()
+    let user = Object.values(db.users).find((u) => u.email === normalized && u.role === role)
+    if (!user) {
+      user = { id: id('usr'), name: name.trim(), email: normalized, role, passportId: null, fundId: role === 'issuer' ? ISSUER_FUND_ID : null }
+      db.users[user.id] = user
+    }
+    db.currentUserId = user.id
+    if (role === 'admin') db.adminId = user.id
+    save()
+    return user
+  },
   async signIn(email, password, role) {
     await wait(600)
     // Demo only: any non-empty password works and none is kept. The real backend verifies a password hash.

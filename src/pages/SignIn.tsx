@@ -22,6 +22,8 @@ export default function SignIn() {
   const { refresh } = useAuth()
   const asParam = params.get('as')
   const [role, setRole] = useState<Role>(asParam === 'issuer' || asParam === 'admin' ? asParam : 'investor')
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
@@ -32,10 +34,15 @@ export default function SignIn() {
     e.preventDefault()
     if (!emailOk(email)) return setError({ field: 'email', message: 'Enter a valid email.' })
     if (!password) return setError({ field: 'password', message: 'Enter your password.' })
+    if (mode === 'register' && !name.trim()) return setError({ field: 'form', message: 'Enter your name.' })
+    if (mode === 'register' && password.length < 10) return setError({ field: 'form', message: 'Use at least 10 characters for your password.' })
+    if (mode === 'register' && role === 'admin') return setError({ field: 'form', message: 'Admin accounts cannot be created here.' })
     setError(null)
     setBusy(true)
     try {
-      const user = await api.signIn(email, password, role)
+      const user = mode === 'register'
+        ? await api.register(name.trim(), email.trim(), password, role)
+        : await api.signIn(email, password, role)
       await refresh()
       const next = params.get('next')
       navigate(next && next.startsWith('/') ? next : homeFor(user.role), { replace: true })
@@ -57,7 +64,7 @@ export default function SignIn() {
       </div>
       <div className="mx-auto w-full max-w-[460px] self-center px-5 pt-16 pb-20 sm:px-8">
         <form onSubmit={submit} noValidate className="border border-line bg-raised p-8 shadow-card sm:p-10">
-          <h1 className="display text-[34px] text-ink">Sign in</h1>
+          <h1 className="display text-[34px] text-ink">{mode === 'login' ? 'Sign in' : 'Create your account'}</h1>
 
           <div role="radiogroup" aria-label="Account type" className={cn('mt-6 grid gap-2', roles.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
             {roles.map((r) => {
@@ -68,7 +75,7 @@ export default function SignIn() {
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  onClick={() => setRole(r.id)}
+                  onClick={() => { setRole(r.id); if (r.id === 'admin') setMode('login') }}
                   className={cn(
                     'flex h-12 items-center justify-center gap-2 rounded-[4px] border text-[16px] transition-[border-color,box-shadow]',
                     on ? 'border-accent text-ink shadow-[0_0_0_1px_var(--accent)]' : 'border-line-strong text-ink-2 hover:border-ink-2',
@@ -81,6 +88,10 @@ export default function SignIn() {
             })}
           </div>
 
+          {mode === 'register' && <Field label="Name" className="mt-6" error={error?.field === 'form' ? error.message : null}>
+            <Input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>}
+
           <Field label="Email" className="mt-6" error={error?.field === 'email' ? error.message : null}>
             <Input type="email" autoComplete="email" inputMode="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={error?.field === 'email' || undefined} />
           </Field>
@@ -89,7 +100,7 @@ export default function SignIn() {
             <div className="relative">
               <Input
                 type={show ? 'text' : 'password'}
-                autoComplete="current-password"
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 aria-invalid={error?.field === 'password' || undefined}
@@ -113,14 +124,15 @@ export default function SignIn() {
           )}
 
           <Button type="submit" size="lg" className="mt-6 w-full" loading={busy}>
-            Sign in
+            {mode === 'login' ? 'Sign in' : 'Create account'}
           </Button>
-          <p className="mt-6 text-center text-[15px] text-ink-3">
-            New to Savy?{' '}
-            <Link to="/get-started" className="link font-semibold">
-              Get verified
-            </Link>
-          </p>
+          {role !== 'admin' && <p className="mt-6 text-center text-[15px] text-ink-3">
+            {mode === 'login' ? 'New to Savy? ' : 'Already have an account? '}
+            <button type="button" className="link font-semibold" onClick={() => { setError(null); setMode(mode === 'login' ? 'register' : 'login') }}>
+              {mode === 'login' ? 'Create an account' : 'Sign in'}
+            </button>
+          </p>}
+          {role === 'investor' && <p className="mt-4 text-center text-[14px] text-ink-3"><Link className="link" to="/get-started">Continue to verification</Link></p>}
         </form>
       </div>
     </div>

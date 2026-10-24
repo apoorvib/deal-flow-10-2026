@@ -1,0 +1,28 @@
+{
+  "docType": "w2",
+  "adjudication": {
+    "fields": {
+      "holderName": {
+        "value": "Maya Specimen",
+        "confidence": 0.99,
+        "sourceQuote": "Maya Specimen"
+      },
+      "taxYear": {
+        "value": 2025,
+        "confidence": 0.99,
+        "sourceQuote": "Tax year 2025"
+      },
+      "income": {
+        "value": 240000.0,
+        "confidence": 0.99,
+        "sourceQuote": "Adjusted gross income / Box 1: $240,000.00"
+      }
+    },
+    "confidence": 0.98,
+    "flags": [],
+    "summary": "Form W-2 for tax year 2025, $240,000 reported.",
+    "trustAssessment": "Synthetic fixture is internally consistent."
+  },
+  "turns": [],
+  "seconds": 0.0
+}

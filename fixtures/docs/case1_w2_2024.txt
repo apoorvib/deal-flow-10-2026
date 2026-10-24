@@ -1,0 +1,23 @@
+SYNTHETIC SPECIMEN — NOT A REAL DOCUMENT
+
+Form W-2  Wage and Tax Statement
+Tax year 2024    Department of the Treasury - Internal Revenue Service
+------------------------------------------------------------
+a  Employee's social security number: XXX-XX-1234
+b  Employer identification number (EIN): XX-XXX4821
+c  Employer's name: Acme Analytics LLC
+   Employer's address: 500 Sample Ave, Springfield, NY 10002
+e  Employee's name: Jane Specimen
+f  Employee's address: 12 Example Lane, Springfield, NY 10001
+------------------------------------------------------------
+Box 1  Wages, tips, other compensation: $262,400.00
+Box 2  Federal income tax withheld: $52,480.00
+Box 3  Social security wages: $168,600.00
+Box 4  Social security tax withheld: $10,453.20
+Box 5  Medicare wages and tips: $262,400.00
+Box 6  Medicare tax withheld: $4,366.40
+Box 15  State: NY
+Box 16  State wages, tips, etc.: $262,400.00
+Box 17  State income tax: $15,744.00
+------------------------------------------------------------
+Copy B - To Be Filed With Employee's FEDERAL Tax Return (2024)

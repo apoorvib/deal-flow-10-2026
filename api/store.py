@@ -65,3 +65,27 @@ def delete(collection: str, key: str) -> bool:
     del data[key]
     _file(collection).write_text(json.dumps(data, indent=2))
     return True
+
+
+# Raw-dict access for server-only records that aren't wire models (sessions,
+# sign-in links, ownership, debate transcripts).
+
+
+def get_raw(collection: str, key: str) -> dict | None:
+    return _read(collection).get(key)
+
+
+def put_raw(collection: str, key: str, value: dict) -> None:
+    data = _read(collection)
+    data[key] = value
+    _file(collection).write_text(json.dumps(data, indent=2))
+
+
+def all_raw(collection: str) -> dict:
+    return _read(collection)
+
+
+def wipe(collection: str) -> None:
+    p = _file(collection)
+    if p.exists():
+        p.unlink()

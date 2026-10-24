@@ -1,0 +1,65 @@
+[
+  {
+    "file": "case1_w2_2024.png",
+    "case": 1,
+    "docType": "w2",
+    "taxYear": 2024,
+    "expectedIncome": 262400.0,
+    "expectedBalance": null,
+    "holderName": "Jane Specimen"
+  },
+  {
+    "file": "case1_w2_2025.png",
+    "case": 1,
+    "docType": "w2",
+    "taxYear": 2025,
+    "expectedIncome": 275900.0,
+    "expectedBalance": null,
+    "holderName": "Jane Specimen"
+  },
+  {
+    "file": "case1_1040_2025.png",
+    "case": 1,
+    "docType": "form_1040",
+    "taxYear": 2025,
+    "expectedIncome": 277000.0,
+    "expectedBalance": null,
+    "holderName": "Jane Specimen"
+  },
+  {
+    "file": "case4_bank_statement.png",
+    "case": 4,
+    "docType": "bank_statement",
+    "taxYear": null,
+    "expectedIncome": null,
+    "expectedBalance": 702461.77,
+    "holderName": "Robert Specimen"
+  },
+  {
+    "file": "case5_w2_2025.png",
+    "case": 5,
+    "docType": "w2",
+    "taxYear": 2025,
+    "expectedIncome": 240000.0,
+    "expectedBalance": null,
+    "holderName": "Maya Specimen"
+  },
+  {
+    "file": "case5_w2_2024.png",
+    "case": 5,
+    "docType": "w2",
+    "taxYear": 2024,
+    "expectedIncome": 185000.0,
+    "expectedBalance": null,
+    "holderName": "Maya Specimen"
+  },
+  {
+    "file": "case5_1040_2024.png",
+    "case": 5,
+    "docType": "form_1040",
+    "taxYear": 2024,
+    "expectedIncome": 185000.0,
+    "expectedBalance": null,
+    "holderName": "Maya Specimen"
+  }
+]

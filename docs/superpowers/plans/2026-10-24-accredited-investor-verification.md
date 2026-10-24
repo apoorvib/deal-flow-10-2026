@@ -4,13 +4,13 @@
 
 **Goal:** Build the Python backend the existing Savy React frontend already expects, where two AI models from different vendors adversarially review uploaded documents and a deterministic engine makes every statutory decision.
 
-**Architecture:** FastAPI service exposing the 13 routes in `src/lib/api/client.ts`. Documents are parsed at upload via a 4-round cross-vendor debate (Nicrron). Verification runs deterministic Rule 501(a) checks, escalates on the worst check, and issues a 90-day passport. PRISM traces everything; Roundtable hosts the debate and versions the case file; Solari does BrokerCheck; akta.pro corroborates entities.
+**Architecture:** FastAPI service exposing the existing verification routes plus new basic account-auth routes. Auth is a parallel MVP workstream; see Parallel Workstream A.  Documents are parsed at upload via a 4-round cross-vendor debate (Nicrron). Verification runs deterministic Rule 501(a) checks, escalates on the worst check, and issues a 90-day passport. PRISM traces everything; Roundtable hosts the debate and versions the case file; Solari does BrokerCheck; akta.pro corroborates entities.
 
 **Spec:** [`../specs/2026-10-24-accredited-investor-verification-design.md`](../specs/2026-10-24-accredited-investor-verification-design.md)
 
 ## MANDATORY READING before any task
 
-Every implementer must read these first. The contract is **fixed by the frontend**; the backend conforms to it.
+Every implementer must read these first. The existing verification contract is defined by the frontend. Account authentication is a new requirement and must be added deliberately to both frontend and backend contracts.
 
 1. **`src/lib/types.ts`** — authoritative wire types. Never invent a field name.
 2. **`src/lib/api/mock.ts`** — a complete working reference implementation. `fakeEvaluate()` is the behavior to replicate with real logic.
@@ -42,7 +42,7 @@ Every implementer must read these first. The contract is **fixed by the frontend
 3. **akta.pro** — slowest: Stripe checkout with `DEALFLOW50`.
 4. **Solari** — redeem `VC-HACK1MO-DNNXSYYM`.
 5. **Roundtable** — account + workspace.
-6. **Ask the organizers** whether "use all five" inherits each sponsor's own qualification rules (spec §9.1).
+6. ~~Ask the organizers about sponsor qualification rules~~ — **resolved (spec §9.1):** Ninoo Builder is NOT required; we **must publish a listing on market.ninoo.ai before judging**. Add that to the final pre-judging checklist.
 
 ## Backend File Structure
 
@@ -264,6 +264,48 @@ Walk the onboarding flow in the browser. Check the browser console for CORS erro
 git add requirements.txt .env.example api/
 git commit -m "feat(api): contract-exact models, CORS, error shape, sandbox stubs"
 ```
+
+---
+
+## Parallel Workstream A: Basic account authentication (new MVP requirement)
+
+**Can run in parallel with Tasks 5–10** once the auth owner agrees on the API/wire contract. It is not backend-only: the current frontend has no sign-up/login UI, `src/lib/session.ts` only stores convenience passport/verification ids in localStorage, and `/passports/lookup` (email + letter reference) is recovery-style lookup, not authentication. Do not modify `src/` without coordinating with the frontend owner; this workstream explicitly requires frontend contract changes.
+
+**Database:** Supabase free-tier PostgreSQL is the chosen MVP database (Ninoo Marketplace does not host the DB). Backend connects through a server-only `DATABASE_URL` using `psycopg`; select Supabase Connect → Direct → Session pooler → URI for now, require SSL, disable prepared statements, and apply `api/migrations/001_auth.sql`. Keep DB credentials out of frontend env/build. This is demo/MVP hosting, not a production SLA; check current free-tier limits before launch. SQLite is not the auth database.
+
+**Scope:** email/password sign-up, login, logout, current-session endpoint; secure password hashing; opaque server-side sessions in HttpOnly/SameSite cookies; frontend auth pages/state; ownership binding and access checks for passport and share resources. Auth-specific schemas/storage/routes should live in dedicated modules where possible to reduce conflicts. Coordinate edits to `api/main.py`, `api/models.py`, `src/lib/api/client.ts`, `src/lib/types.ts`, `src/App.tsx`, and passport pages before merging.
+
+**Minimum acceptance:**
+- Sign-up normalizes email, validates password, rejects duplicate accounts, and persists only a vetted password hash.
+- Login succeeds only for valid credentials; session cookie is HttpOnly, SameSite, Secure in production; logout invalidates it; session inspection survives reload.
+- Private passport and share reads/writes enforce owner identity; users cannot access another user's passport by changing an id. Sign-off must require an authorized reviewer (or remain explicitly demo-only and blocked from claiming authenticated review).
+- Frontend has working sign-up/login/logout and clear signed-in state. Existing public verification start may remain public, but verification records and passports must be bound to the account created/selected in that flow.
+- Tests cover registration/login/logout, cookie/session behavior, unauthenticated requests, and cross-user access denial.
+- Cookie-authenticated mutations have CSRF protection; auth endpoints have basic rate limiting. Localhost CORS remains credential-compatible.
+
+**Not automatically included:** email verification, password reset, MFA, production-grade abuse detection, SOC 2/FCRA/GLBA obligations. Mark these as launch blockers if real investor data is in scope.
+
+**Parallelism note:** backend auth can be developed independently of debate/checks/decision logic, but final wiring is not independent because ownership affects verification creation, passport lookup, shares, and sign-off. Merge behind stable auth helpers/dependencies; integrate and run the full UI flow before calling it done.
+
+---
+
+## Parallel Workstream A: Basic account authentication (new MVP requirement)
+
+**Can run in parallel with Tasks 5–10** once the auth owner agrees on the API/wire contract. This is not backend-only: the current frontend has no sign-up/login UI, `src/lib/session.ts` only stores convenience passport/verification ids in localStorage, and `/passports/lookup` (email + letter reference) is recovery-style lookup, not authentication. Do not modify `src/` without coordinating with the frontend owner; this workstream explicitly requires frontend contract changes.
+
+**Scope:** email/password sign-up, login, logout, current-session endpoint; secure password hashing; opaque server-side sessions in HttpOnly/SameSite cookies; frontend auth pages/state; ownership binding and access checks for passport and share resources. Auth-specific schemas/storage/routes should live in dedicated modules where possible to reduce conflicts. Coordinate edits to `api/main.py`, `api/models.py`, `src/lib/api/client.ts`, `src/lib/types.ts`, `src/App.tsx`, and passport pages before merging.
+
+**Minimum acceptance:**
+- Sign-up normalizes email, validates input, rejects duplicate accounts, and persists only a vetted password hash.
+- Login succeeds only for valid credentials; session cookie is HttpOnly, SameSite, Secure in production; logout invalidates it; session inspection survives reload.
+- Private passport and share reads/writes enforce owner identity; users cannot access another user's passport by changing an id. Sign-off must require an authorized reviewer (or remain explicitly demo-only and blocked from claiming authenticated review).
+- Frontend has working sign-up/login/logout and clear signed-in state. Existing public verification start may remain public, but verification records and passports must be bound to the account created/selected in that flow.
+- Tests cover registration/login/logout, cookie/session behavior, unauthenticated requests, and cross-user access denial.
+- Cookie-authenticated mutations have CSRF protection; auth endpoints have basic rate limiting. Localhost CORS remains credential-compatible.
+
+**Not automatically included:** email verification, password reset, MFA, production-grade abuse detection, SOC 2/FCRA/GLBA obligations. Mark these as launch blockers if real investor data is in scope.
+
+**Parallelism note:** backend auth can be developed independently of debate/checks/decision logic, but final wiring is not independent because ownership affects verification creation, passport lookup, shares, and sign-off. Agree stable auth helpers/dependencies and integrate before claiming the full flow works.
 
 ---
 

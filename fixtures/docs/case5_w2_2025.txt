@@ -1,0 +1,23 @@
+SYNTHETIC SPECIMEN — NOT A REAL DOCUMENT
+
+Form W-2  Wage and Tax Statement
+Tax year 2025    Department of the Treasury - Internal Revenue Service
+------------------------------------------------------------
+a  Employee's social security number: XXX-XX-5678
+b  Employer identification number (EIN): XX-XXX7310
+c  Employer's name: Northwind Robotics Inc.
+   Employer's address: 1 Placeholder Pkwy, Lakeside, CA 90001
+e  Employee's name: Maya Specimen
+f  Employee's address: 88 Imaginary Rd, Lakeside, CA 90000
+------------------------------------------------------------
+Box 1  Wages, tips, other compensation: $240,000.00
+Box 2  Federal income tax withheld: $46,800.00
+Box 3  Social security wages: $176,100.00
+Box 4  Social security tax withheld: $10,918.20
+Box 5  Medicare wages and tips: $240,000.00
+Box 6  Medicare tax withheld: $3,840.00
+Box 15  State: CA
+Box 16  State wages, tips, etc.: $240,000.00
+Box 17  State income tax: $19,200.00
+------------------------------------------------------------
+Copy B - To Be Filed With Employee's FEDERAL Tax Return (2025)

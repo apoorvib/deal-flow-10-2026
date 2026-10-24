@@ -1,0 +1,22 @@
+SYNTHETIC SPECIMEN — NOT A REAL DOCUMENT
+
+Form 1040  U.S. Individual Income Tax Return
+Tax year 2024    Department of the Treasury - Internal Revenue Service
+------------------------------------------------------------
+Your first name and last name: Maya Specimen
+Your social security number: XXX-XX-5678
+Home address: 88 Imaginary Rd, Lakeside, CA 90000
+Filing Status: Single
+------------------------------------------------------------
+Income
+1a  Total amount from Form(s) W-2, box 1: $185,000.00
+1z  Add lines 1a through 1h: $185,000.00
+2b  Taxable interest: $0.00
+3b  Ordinary dividends: $0.00
+8   Additional income from Schedule 1, line 10: $27,000.00
+9   Total income (add lines 1z through 8): $212,000.00
+10  Adjustments to income from Schedule 1, line 26: $27,000.00
+11  Adjusted gross income (line 9 minus line 10): $185,000.00
+------------------------------------------------------------
+Under penalties of perjury, I declare that I have examined this return.
+Signature: Maya Specimen    Occupation: see W-2

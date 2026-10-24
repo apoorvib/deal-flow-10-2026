@@ -1,0 +1,1 @@
+{ "name": "savy-solari", "private": true, "type": "module", "dependencies": { "@solarisdk/browser": "^0.1.7" } }

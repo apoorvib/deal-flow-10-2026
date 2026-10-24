@@ -163,3 +163,6 @@ https://nicrronninoo.ai/nicrronninoo-brand-kit.zip
 
 
 Website: https://nicrronninoo.ai
+- Python backend runs on Windows miniforge, not WSL python3 (which lacks fastapi/pytest): use `/mnt/c/Users/Apoorv/miniforge3/python.exe -m pytest -q` from repo root. Pillow is available there; PyMuPDF (fitz) is not.
+- User preference: do not spend time writing or running minor unit tests. Overrides the plan/handoff "TDD, strict" instructions; verify via end-to-end runs (seed script, real UI) instead, keeping at most a few high-value tests.
+- Organizer ruling (2026-10-24): building with Ninoo Builder is NOT required. Only requirement: publish a listing on market.ninoo.ai before judging (judges see that page). AI calls still go via the Nicrron API.

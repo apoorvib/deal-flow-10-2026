@@ -1,0 +1,28 @@
+{
+  "docType": "w2",
+  "adjudication": {
+    "fields": {
+      "holderName": {
+        "value": "Jane Specimen",
+        "confidence": 0.99,
+        "sourceQuote": "Jane Specimen"
+      },
+      "taxYear": {
+        "value": 2024,
+        "confidence": 0.99,
+        "sourceQuote": "Tax year 2024"
+      },
+      "income": {
+        "value": 262400.0,
+        "confidence": 0.99,
+        "sourceQuote": "Adjusted gross income / Box 1: $262,400.00"
+      }
+    },
+    "confidence": 0.98,
+    "flags": [],
+    "summary": "Form W-2 for tax year 2024, $262,400 reported.",
+    "trustAssessment": "Synthetic fixture is internally consistent."
+  },
+  "turns": [],
+  "seconds": 0.0
+}

@@ -1,0 +1,11 @@
+{
+  "default": {
+    "found": true,
+    "name": "Registered representative",
+    "licenses": ["Series 7", "Series 65"],
+    "source_url": "https://brokercheck.finra.org/",
+    "screenshot_path": null,
+    "checked_at": "2026-10-24T16:41:00+00:00",
+    "note": "Synthetic default used when no recorded lookup exists for a CRD. Replace with a real recorded lookup for the demo CRD."
+  }
+}

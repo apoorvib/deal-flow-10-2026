@@ -52,8 +52,8 @@ export interface Api {
   sharePassport(passportId: string, fundId: string): Promise<Share>
   revokeShare(passportId: string, shareId: string): Promise<void>
 
-  // Accounts: email + password. (Email confirmation happens during onboarding, not at sign-in.)
-  /** Signs in, or creates the account on first use. The sandbox accepts any password and never stores it. */
+  // Email/password auth; backend owns the HttpOnly session cookie.
+  register(name: string, email: string, password: string, role: Role): Promise<User>
   signIn(email: string, password: string, role: Role): Promise<User>
   me(): Promise<User | null>
   signOut(): Promise<void>
@@ -136,10 +136,11 @@ const httpApi: Api = {
   revokeShare: async (pid, sid) => {
     await request(`/passports/${pid}/shares/${sid}`, { method: 'DELETE' })
   },
+  register: (name, email, password, role) => post('/auth/register', { name, email, password, role }),
   signIn: (email, password, role) => post('/auth/login', { email, password, role }),
   me: () => request<User | null>('/me').catch((e) => (e instanceof ApiError && e.status === 401 ? null : Promise.reject(e))),
   signOut: async () => {
-    await post('/auth/signout')
+    await post('/auth/logout')
   },
   getSettings: () => request('/me/settings'),
   updateSettings: (patch) => request('/me/settings', { method: 'PATCH', body: JSON.stringify(patch) }),

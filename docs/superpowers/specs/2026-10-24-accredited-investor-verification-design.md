@@ -18,9 +18,9 @@ An LP gets verified as an accredited investor **once**, then shares a reusable 9
 
 ---
 
-## 2. The Frontend Already Exists — The Contract Is Fixed
+## 2. The Frontend Already Exists — Extend the Contract Deliberately
 
-A React/TypeScript app (Vite, React 19, Tailwind v4) is built and working against a mock. **The backend conforms to the frontend, not the other way round.**
+A React/TypeScript app (Vite, React 19, Tailwind v4) is built and working against a mock. **The existing verification backend conforms to the frontend, not the other way round.** Basic user accounts are new MVP scope; extend frontend and backend contracts together. The current UI does not provide account login/sign-up: it offers a public verification flow and an email + letter-reference lookup for returning investors. Basic user accounts are a new MVP requirement and will require a deliberate frontend/API contract extension (not just backend-only routes).
 
 | Source of truth | What it defines |
 |---|---|
@@ -30,7 +30,7 @@ A React/TypeScript app (Vite, React 19, Tailwind v4) is built and working agains
 | **`src/lib/rules.ts`** | Thresholds, and `estimateNetWorth()` — **use its formula verbatim**. |
 | **`README.md`** | The route table. |
 
-### Routes (exact)
+### Routes (verification contract as currently implemented)
 
 | Method | Route | Body | Returns |
 |---|---|---|---|
@@ -38,6 +38,10 @@ A React/TypeScript app (Vite, React 19, Tailwind v4) is built and working agains
 | POST | `/account-links` | `{scenario?}` | `AccountLink` |
 | POST | `/documents` | multipart `file` | `ParsedDocument` |
 | POST | `/licenses/check` | `{type, crd}` | `{found, name}` |
+| POST | `/auth/signup` | `{email, password}` | `{user}` + session cookie |
+| POST | `/auth/login` | `{email, password}` | `{user}` + session cookie |
+| POST | `/auth/logout` | | `204` + clear session cookie |
+| GET | `/auth/me` | | `{user}` or `401` |
 | POST | `/verifications` | `ApplicationInput` | `Verification` |
 | GET | `/verifications/:id` | | `Verification` |
 | POST | `/verifications/:id/sign-off` | | `Verification` |
@@ -47,6 +51,24 @@ A React/TypeScript app (Vite, React 19, Tailwind v4) is built and working agains
 | GET | `/passports/:id/shares` | | `Share[]` |
 | POST | `/passports/:id/shares` | `{fundId}` | `Share` |
 | DELETE | `/passports/:id/shares/:shareId` | | — |
+
+### MVP authentication extension (new requirement)
+
+Add basic email/password sign-up, login, logout, and current-session inspection. This is a scoped product requirement, not production-grade identity. Keep the existing verification route contracts backward-compatible where possible, but add an explicit auth contract and update `src/lib/api/client.ts` / `src/lib/types.ts` when implementation starts. Use Supabase-hosted PostgreSQL via backend-only `DATABASE_URL` and `psycopg`; do not use SQLite for identity/session data. Select Supabase Connect → Direct → Session pooler → URI for the current setup; it supports IPv4 and session semantics. The app requires SSL and disables prepared statements. Direct connection is also suitable later if the deployed persistent backend is confirmed to support IPv6. Never put DB credentials in frontend `VITE_` variables. Do not silently claim the existing UI already supports accounts.
+
+**Database decision:** use managed PostgreSQL on the Supabase free tier for MVP/development. Ninoo Marketplace publishes the listing but does not host the database; the app/backend must be deployed separately and connect to Supabase using a server-side `DATABASE_URL`. Never expose service-role/database credentials in the browser. The free tier is appropriate for the demo/MVP, not a production availability or compliance commitment; verify Supabase's current limits and backup/pausing behavior before launch.
+
+**Parallelization:** account auth is separable from the document debate and deterministic evaluation engine. It can be implemented as a parallel workstream, but it necessarily touches shared integration surfaces (`api/main.py`, `api/models.py`, the frontend API client, routing/header/session handling, and passport ownership). Assign one auth owner to define the contract first; keep auth-specific implementation in isolated modules/components and coordinate route wiring. Merge/integrate before claiming protected passport access works.
+
+**Minimum requirements:**
+- Sign-up with email and password; normalize email, validate inputs, hash passwords with a vetted password-hashing library (never store plaintext passwords), reject duplicate accounts, and return useful errors.
+- Login verifies credentials and establishes an opaque server-side session using an HttpOnly, SameSite cookie; logout revokes the session. Add `GET /auth/me` (or equivalent) for refresh persistence.
+- Frontend adds sign-up/login/logout flows and a session-aware header/state; route guards for private account functions; account sessions must survive refresh without relying on localStorage for credentials.
+- Bind verification and passport ownership to the authenticated user server-side. Protect passport detail, shares, lookup/account management, and reviewer sign-off appropriately. Returning-investor email + letter reference remains a separate recovery/lookup flow; it is not authentication.
+- Add tests for password hashing, duplicate registration, correct/incorrect login, logout/session expiry, cookie attributes, unauthenticated access, and cross-user passport access.
+- Configure credentialed CORS for the actual frontend origin(s), CSRF protection for state-changing cookie-authenticated requests, and login/registration rate limits before any non-local deployment.
+
+For this MVP, password reset, email verification, and MFA are explicitly out of scope. This is not a substitute for production security review, broader abuse controls, or legal/compliance requirements.
 
 ### Non-negotiable wire details
 
@@ -286,7 +308,7 @@ Four of five SDKs have never been run by this team. Each gets a timebox and a pr
 
 ## 9. Open Questions
 
-1. **Do the organizers require meeting each sponsor's *own* qualification rules?** `ninoo.md` says "Three rules. Miss any one of them and your entry is disqualified," one of which is building in the Ninoo Builder. We are using the Nicrron API only (user's decision). If their all-five rule inherits each sponsor's conditions, that is a disqualification risk, not a forfeited track. **Get a ruling in the first ten minutes.**
+1. ~~**Do the organizers require meeting each sponsor's *own* qualification rules?**~~ **RESOLVED (2026-10-24, organizer ruling):** we do **not** have to build with the Ninoo Builder. The one Ninoo requirement that still applies: **publish a listing on [market.ninoo.ai](https://market.ninoo.ai) before judging** — that listing is what judges see. Any AI calls still go through the Nicrron API (already the design).
 2. **Which real CRD** backs demo case 2? Ideally a consenting teammate's.
 3. **Does the second backend engineer's deterministic document parser land?** If it does, it slots in behind the same extraction interface as an independent second opinion: agreement raises confidence, disagreement forces `review`. Never on the critical path.
 
@@ -294,9 +316,9 @@ Four of five SDKs have never been run by this team. Each gets a timebox and a pr
 
 ## 10. Security Posture — Read This Before Deploying Anything
 
-**This build has no authentication, and that is deliberate.** It is a localhost demo with synthetic data, judged in a single evening. The frontend contract in `src/lib/api/client.ts` has no auth concept at all, and it exposes `signOff` as an explicit sandbox control. Adding auth tonight would mean diverging from the contract the backend exists to satisfy.
+**The original demo scope had no authentication, but basic account authentication is now an MVP requirement.** The current frontend contract in `src/lib/api/client.ts` still has no auth API, and its email + letter-reference passport lookup is not authentication. Add basic sign-up/login/logout and server-side sessions via the MVP auth extension in §2. This requires coordinated frontend contract changes and ownership checks; it is not backend-only. The current sandbox `signOff` remains an unauthenticated control only until reviewer authorization is implemented; do not expose it as a real-world approval path.
 
-**It is therefore unsafe to deploy as-is.** An automated security review flagged both of these, correctly:
+**The existing implementation is unsafe to deploy as-is.** Basic auth is now required, but until auth, ownership checks and the remaining security controls below are implemented and reviewed, treat the service as a synthetic-data localhost demo only. An automated security review flagged these issues, correctly:
 
 | Hole | Consequence if deployed |
 |---|---|
@@ -306,7 +328,7 @@ Four of five SDKs have never been run by this team. Each gets a timebox and a pr
 
 **Before this touches a real investor's data, all of the following are prerequisites, not enhancements:** session or bearer auth; an owning user bound to each passport at issuance with an ownership check on every passport-scoped route; a `reviewer` role gating sign-off; rate limiting on lookup; and (per `plan.md` §6) SOC 2 Type II, FCRA consent handling for any credit data, and GLBA obligations.
 
-### The one carve-out we *do* fix tonight
+### Reviewer attribution
 
 An approval that issues a passport **with no recorded reviewer identity** is not merely a security gap — it is a defect in the product's own argument. §1 says the audit trail *is* the product, and §11 of `plan.md` rests on a documented process. "A human signed off" is worthless to an issuer who cannot say *which* human.
 

@@ -1,6 +1,6 @@
 # Backend Handoff — Savy
 
-**Status as of this file: Tasks 1, 2, and 5 are DONE and committed. Start at the fixtures, then Task 6.**
+**Status as of this file: Tasks 1, 2, and 5 are DONE and committed. Start at the fixtures, then Task 6. New requirement: add basic account auth as a parallel workstream; see spec §2 and plan's Parallel Workstream A.**
 
 You are finishing the Python backend for an accredited-investor verification product called Savy. A React frontend is already built and working. Your job is to make the backend real, task by task, from an existing plan.
 
@@ -39,13 +39,13 @@ These are committed and have passed code review. **Treat them as fixed.** If you
 1. **JSON on the wire is camelCase.** Always serialize with `by_alias=True`.
 2. **Errors are `{"error": "message"}`** — never FastAPI's default `{"detail": ...}`.
 3. **CORS is `allow_origins=["http://localhost:5173"]` with `allow_credentials=True`.** A wildcard origin is invalid when the client sends credentials, which this frontend does.
-4. **Never add a field to a type defined in `src/lib/types.ts`.** If the backend needs to remember something the frontend does not need, put it in its own store collection. Two precedents already exist: `doc_reviews` (the AI adjudicator's recommendation) and `audit_log` (sign-off attribution). Follow that pattern.
-5. **Do not add authentication.** It is an accepted non-goal — see spec §10. The frontend contract has no auth concept, and adding it would diverge from the contract. The security holes are documented deliberately.
+4. **Never add a field to an existing verification type defined in `src/lib/types.ts` without coordinating the auth contract change.** Auth adds its own `User` wire type and API methods; server-only data belongs in its own store collections.
+5. **Authentication is now required at basic MVP level.** Add email/password sign-up/login/logout and server-side sessions; the current frontend has no account UI and its email + letter-reference passport lookup is not auth. See spec §2 (MVP auth extension) and implementation plan (Parallel Workstream A). Coordinate frontend contract changes; do not pretend this is backend-only. Production-grade auth/compliance remains out of scope unless requirements expand.
 6. **The challenger model must NOT be an OpenAI model.** Extractor is `openai/gpt-6-luna`, challenger is `anthropic/claude-sonnet-5`, adjudicator is `openai/gpt-6-astra`. Cross-vendor independence is the whole architectural claim: the same vendor twice shares its blind spots, so the adversarial review becomes a rubber stamp. A test asserts the vendors differ — it is guarding the architecture.
 7. **Decisions are deterministic.** The AI reads documents and writes prose. It never decides whether someone is accredited. `decision` is computed from checks by escalation (worst check wins). An AI recommendation is an *input*, never the output.
 8. **Confidence threshold is 0.9**, from `src/lib/rules.ts`. Documents below 0.9, or carrying any flag, escalate the verification to `review`.
 9. **Never print an API key value.** Keys live in `.env` at the repo root. Load them; do not echo them.
-10. **Do not modify anything under `src/`.** That is the frontend.
+10. **Do not modify anything under `src/` for backend evaluation tasks.** Authentication is the explicit exception: it requires coordinated frontend contract/UI work, so coordinate with the frontend owner and keep edits scoped.
 11. **Vision works on BOTH models — confirmed on a document image.** Do not re-litigate this. An earlier probe concluded luna's vision was unconfirmed by misreading `finish_reason: "length"` (that means the output budget ran out, not that the model is blind). A W-2 image test settled it: both models returned `$214,500.00` with `finish_reason: stop` inside a 16-token cap. Spec §6 has the table.
 
 ---
@@ -72,7 +72,7 @@ Also: `complete_json` hardcodes a `data:image/png;base64,` prefix, so `image_b64
 
 ## 5. Do the work in THIS order
 
-The plan's task numbers are not the right execution order given what is done and what is blocked.
+The plan's task numbers are not the right execution order given what is done and what is blocked. The new account-auth workstream can proceed in parallel with core evaluation implementation, but must integrate before end-to-end acceptance.
 
 ### Step A — Document fixtures FIRST (plan Task 13, step 1 only)
 
@@ -132,11 +132,21 @@ PRISM first — it is a deep integration and its `DEALFLOW` credit only redeems 
 
 For akta.pro: it holds **company data only** — no individual-level data at all, so it can **never** establish accredited status for a person. It produces one `Check` that can `warn`, never a `pass` on accreditation, and `detail` must say it is corroboration rather than verification.
 
-### Step I — Task 14, only if everything above is done and rehearsed
+### Step I — Parallel auth workstream and final integration
+
+Basic account authentication is a new MVP requirement and can proceed alongside the backend evaluation tasks after agreeing the contract. It must include frontend sign-up/login/logout, server-side sessions, and ownership checks. Integrate with verification/passport/share routes before calling the product workable; the detailed acceptance criteria are in the implementation plan.
+
+### Step J — Task 14, only if everything above is done and rehearsed
 
 The optional deterministic-parser cross-check. Skip it otherwise.
 
 ---
+
+## Parallel workstream: account authentication
+
+Use Supabase free-tier PostgreSQL. Configure backend-only `DATABASE_URL` using Supabase Connect → Direct → Session pooler → URI. Backend requires SSL and disables prepared statements; use the exact supplied URI. Apply `api/migrations/001_auth.sql` to provision auth tables. Keep DB credentials out of every frontend `VITE_` variable. Set `COOKIE_SECURE=1` behind HTTPS.
+
+Basic email/password sign-up, login, logout, server-side sessions, frontend auth UI/state, and ownership enforcement are now MVP scope. This is parallelizable with debate/checks work after the API contract is agreed, but it crosses `api/main.py`, client/types, frontend routing/header, and passport ownership; coordinate those shared surfaces. Email + letter-reference lookup is not authentication. Follow the acceptance criteria in plan Parallel Workstream A and spec §2. Do not claim the full product is workable until the auth flow and cross-user access tests pass.
 
 ## 6. How to work
 
@@ -147,6 +157,12 @@ The optional deterministic-parser cross-check. Skip it otherwise.
 - **If you fall behind**, use the plan's **Cut Ladder** — cut from the top. Roundtable degrades to local JSON logging first; it costs nothing architecturally.
 - **Never cut:** the deterministic checks (Task 7), the decision engine (Task 8), demo case 5, or the WiFi-down drill.
 - **If something is genuinely ambiguous**, follow `src/lib/types.ts` and write down what you decided and why. Do not guess silently.
+
+## Parallel workstream: account authentication
+
+Use Supabase free-tier PostgreSQL for MVP; Ninoo Marketplace does not host the DB. Connect via backend-only `DATABASE_URL` and `psycopg` with SSL. Current choice: Supabase Direct → Session pooler → URI. Apply `api/migrations/001_auth.sql`. Never expose credentials in frontend config. Free tier is not a production SLA; check current limits before launch.
+
+Basic email/password sign-up, login, logout, server-side sessions, frontend auth UI/state, and ownership enforcement are now MVP scope. This is parallelizable with debate/checks work after the API contract is agreed, but it crosses `api/main.py`, client/types, frontend routing/header, and passport ownership; coordinate those shared surfaces. Email + letter-reference lookup is not authentication. Follow acceptance criteria in plan Parallel Workstream A and spec §2. Do not claim the full product is workable until auth and cross-user access tests pass.
 
 ## 7. What the demo has to show
 

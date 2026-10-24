@@ -1,0 +1,23 @@
+{
+  "_note": "Synthetic akta.pro responses keyed by normalized entity name (lowercase, alphanumerics only). 'default' = an entity akta.pro cannot resolve.",
+  "rosencapitalllc": {
+    "resolved": true,
+    "headcount": 42,
+    "funding_total": 18000000,
+    "adverse_news": []
+  },
+  "harborlightholdingsllc": {
+    "resolved": false,
+    "headcount": 0,
+    "funding_total": null,
+    "adverse_news": [
+      {"headline": "State regulator issues notice to Harborlight Holdings over unregistered offering (synthetic)", "sentiment": "negative"}
+    ]
+  },
+  "default": {
+    "resolved": false,
+    "headcount": null,
+    "funding_total": null,
+    "adverse_news": []
+  }
+}
