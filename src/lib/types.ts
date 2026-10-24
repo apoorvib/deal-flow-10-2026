@@ -1,0 +1,200 @@
+// API contract: the single definition of every entity the frontend exchanges with the backend.
+// Share this file with the backend team; field changes start here.
+
+export type InvestorType = 'individual' | 'joint' | 'entity'
+export type EntityKind = 'llc' | 'corporation' | 'partnership' | 'trust'
+
+export type Pathway =
+  | 'income'
+  | 'net_worth'
+  | 'license'
+  | 'min_investment'
+  | 'entity_assets'
+
+export type LicenseType = 'series7' | 'series65' | 'series82'
+
+export interface Profile {
+  legalName: string
+  email: string
+  country: string
+  entityName?: string
+  entityKind?: EntityKind
+}
+
+/** Result of the identity / sanctions check (Persona in production, mocked for now). */
+export interface KycSession {
+  id: string
+  status: 'verified' | 'failed'
+  nameOnId: string
+  ofacHit: boolean
+  pep: boolean
+  createdAt: string
+}
+
+export interface LinkedAccount {
+  id: string
+  institution: string
+  name: string
+  kind: 'checking' | 'savings' | 'brokerage' | 'retirement'
+  balance: number
+}
+
+/** Account-link session (Plaid in production, mocked for now). */
+export interface AccountLink {
+  id: string
+  accounts: LinkedAccount[]
+  createdAt: string
+}
+
+export type DocType =
+  | 'w2'
+  | 'form_1040'
+  | 'k1'
+  | 'bank_statement'
+  | 'brokerage_statement'
+  | 'cpa_letter'
+  | 'trust_agreement'
+  | 'entity_formation'
+  | 'other'
+
+/** What the AI layer extracted from an uploaded document. The server keeps these; the client only references them by id. */
+export interface ParsedDocument {
+  id: string
+  fileName: string
+  docType: DocType
+  holderName: string | null
+  taxYear: number | null
+  statementDate: string | null
+  /** Income figure (AGI, or W-2 wages when no AGI) for tax documents. */
+  income: number | null
+  /** Total balance / account value for statements. */
+  balance: number | null
+  confidence: number
+  flags: string[]
+  summary: string
+  createdAt: string
+}
+
+export interface IncomeEvidence {
+  priorYear2: number
+  priorYear1: number
+  expectedCurrent: number
+}
+
+export interface NetWorthEvidence {
+  /** Self-reported assets outside linked accounts and documents, excluding primary residence. */
+  otherAssets: number
+  /** Self-reported liabilities, excluding the primary-residence mortgage. */
+  liabilities: number
+  primaryResidenceValue: number
+  primaryResidenceMortgage: number
+  /** Mortgage debt added in the last 60 days (not used to buy the home). */
+  mortgageIncreaseLast60Days: number
+}
+
+export interface LicenseEvidence {
+  type: LicenseType
+  crd: string
+}
+
+export interface MinInvestmentEvidence {
+  commitment: number
+}
+
+export interface EntityAssetsEvidence {
+  totalAssets: number
+  formedForPurpose: boolean
+}
+
+export interface Attestations {
+  accurate: boolean
+  notThirdPartyFinanced: boolean
+  consentToVerify: boolean
+}
+
+/** What the LP submits. Server-side facts (KYC, linked accounts, parsed docs) are referenced by id, never trusted from the client. */
+export interface ApplicationInput {
+  investorType: InvestorType
+  profile: Profile
+  kycSessionId: string | null
+  pathway: Pathway
+  accountLinkId: string | null
+  documentIds: string[]
+  income?: IncomeEvidence
+  netWorth?: NetWorthEvidence
+  license?: LicenseEvidence
+  minInvestment?: MinInvestmentEvidence
+  entityAssets?: EntityAssetsEvidence
+  attestations: Attestations
+}
+
+export type CheckResult = 'pass' | 'fail' | 'warn'
+
+export interface Check {
+  id: string
+  label: string
+  result: CheckResult
+  detail: string
+}
+
+export type Decision = 'approved' | 'review' | 'needs_info' | 'denied'
+
+export interface Evaluation {
+  decision: Decision
+  checks: Check[]
+  /** Plain-language reasons shown to the LP when not approved. */
+  reasons: string[]
+}
+
+export interface Verification {
+  id: string
+  input: ApplicationInput
+  evaluation: Evaluation
+  passportId: string | null
+  createdAt: string
+  reviewedAt: string | null
+}
+
+export interface Passport {
+  id: string
+  holderName: string
+  investorType: InvestorType
+  pathway: Pathway
+  verificationId: string
+  letterRef: string
+  issuedAt: string
+  expiresAt: string
+  checks: Check[]
+}
+
+export interface Fund {
+  id: string
+  name: string
+  manager: string
+  strategy: string
+  offering: '506(c)' | '506(b)'
+  minCheck: number
+  closing: string
+}
+
+export interface Share {
+  id: string
+  passportId: string
+  fundId: string
+  createdAt: string
+  views: { at: string; by: string }[]
+}
+
+export const PATHWAY_LABEL: Record<Pathway, string> = {
+  income: 'Income',
+  net_worth: 'Net worth',
+  license: 'Professional license',
+  min_investment: 'Minimum investment',
+  entity_assets: 'Entity assets',
+}
+
+export const INVESTOR_TYPE_LABEL: Record<InvestorType, string> = {
+  individual: 'Individual',
+  joint: 'Joint with spouse',
+  entity: 'Entity or trust',
+}

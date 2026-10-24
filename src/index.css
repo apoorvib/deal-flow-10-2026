@@ -1,0 +1,159 @@
+@import 'tailwindcss';
+
+/* ---- Tokens -------------------------------------------------------------------------- */
+:root {
+  --paper: #f4f2ec;
+  --surface: #faf9f5;
+  --raised: #ffffff;
+  --ink: #14161a;
+  --ink-2: #474c54;
+  --ink-3: #7d828a;
+  --line: #e2ded4;
+  --line-strong: #cbc5b7;
+  --accent: #1d3b30;
+  --accent-2: #2b5444;
+  --on-accent: #f4f2ec;
+  --brass: #94764a;
+  --brass-soft: #e9e0cf;
+  --ok: #2c6a4d;
+  --ok-soft: #e1ece4;
+  --warn: #9c5d17;
+  --warn-soft: #f3e7d4;
+  --danger: #9b3527;
+  --danger-soft: #f3dfda;
+  --focus: #2b5444;
+  --shadow-card: 0 1px 0 rgb(20 22 26 / 0.04), 0 1px 2px rgb(20 22 26 / 0.06), 0 8px 24px -12px rgb(20 22 26 / 0.12);
+  --shadow-lift: 0 1px 0 rgb(20 22 26 / 0.04), 0 2px 4px rgb(20 22 26 / 0.06), 0 24px 48px -20px rgb(20 22 26 / 0.28);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0e1012;
+    --surface: #141719;
+    --raised: #1a1d20;
+    --ink: #ebe8e1;
+    --ink-2: #a6aab0;
+    --ink-3: #6f747b;
+    --line: #25292d;
+    --line-strong: #353a3f;
+    --accent: #b9d4c4;
+    --accent-2: #d3e5da;
+    --on-accent: #0e1012;
+    --brass: #c4a578;
+    --brass-soft: #2b251b;
+    --ok: #7fbb9b;
+    --ok-soft: #17261e;
+    --warn: #d9a25c;
+    --warn-soft: #2a2115;
+    --danger: #e08a7b;
+    --danger-soft: #2d1916;
+    --focus: #b9d4c4;
+    --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 24px 48px -20px rgb(0 0 0 / 0.8);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-on-accent: var(--on-accent);
+  --color-brass: var(--brass);
+  --color-brass-soft: var(--brass-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- Base ---------------------------------------------------------------------------- */
+html {
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  background: var(--paper);
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--brass-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 30, 'WONK' 0;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Paper grain: an SVG noise tile at very low opacity so flat fills don't feel digital. */
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
