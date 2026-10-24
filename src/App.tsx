@@ -98,8 +98,9 @@ function Header() {
       <div className="border-b border-line bg-paper">
         <div className="mx-auto flex h-[76px] max-w-6xl items-center gap-10 px-5 sm:px-8">
           <Wordmark />
-          <nav className="hidden flex-1 items-center gap-7 lg:flex" aria-label="Main">
-            {NAV.map((n) => (
+          {/* Marketing links are for prospects; signed-in users get Dashboard and their account menu instead. */}
+          <nav className={user ? 'flex-1' : 'hidden flex-1 items-center gap-7 lg:flex'} aria-label="Main">
+            {!user && NAV.map((n) => (
               <NavLink key={n.label} to={n.to} className="text-[17px] text-ink transition-colors hover:text-accent">
                 {n.label}
               </NavLink>
