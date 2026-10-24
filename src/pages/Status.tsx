@@ -72,7 +72,7 @@ function Approved({ passport }: { passport: Passport | null }) {
         Verified
       </Badge>
       <h1 className="display mt-5 text-[clamp(34px,5vw,52px)] leading-[1.02] text-ink">You&rsquo;re verified.</h1>
-      <p className="mx-auto mt-4 max-w-md text-[17px] leading-relaxed text-ink-2">Your passport is ready. Share it with any participating fund for the next 90 days. They&rsquo;ll see your status, never your documents.</p>
+      <p className="mx-auto mt-4 max-w-md text-[17px] leading-relaxed text-ink-2">Share your passport with any Savy fund for 90 days. They see your status, never your documents.</p>
       <div className="mx-auto mt-10 max-w-md">
         {passport ? (
           <motion.div initial={{ opacity: 0, y: 30, rotateX: 18, scale: 0.96 }} animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }} transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.15 }} style={{ transformPerspective: 1200 }}>

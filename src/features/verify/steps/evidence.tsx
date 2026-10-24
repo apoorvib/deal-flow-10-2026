@@ -246,7 +246,7 @@ function AccountLinker() {
           </span>
           <span className="flex-1">
             <span className="block text-[15px] font-medium text-ink">Link your accounts</span>
-            <span className="block text-[14px] text-ink-3">Read-only. We can&rsquo;t move money.</span>
+            <span className="block text-[14px] text-ink-3">Read-only. We can see balances, never move money.</span>
           </span>
           <span className="text-ink-3 transition-transform group-hover:translate-x-0.5">&rarr;</span>
         </button>

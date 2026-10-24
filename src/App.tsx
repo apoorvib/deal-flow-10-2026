@@ -35,8 +35,8 @@ const NAV = [
   { to: '/get-started', label: 'Get verified' },
   { to: '/#qualify', label: 'Ways to qualify' },
   { to: '/#how', label: 'How it works' },
-  { to: '/#privacy', label: 'Privacy & security' },
   { to: '/#funds', label: 'For funds' },
+  { to: '/#investors', label: 'For investors' },
 ]
 
 function Wordmark({ className }: { className?: string }) {
@@ -55,7 +55,7 @@ function Header() {
       <div className="border-b border-line bg-paper">
         <p className="mx-auto flex h-11 max-w-6xl items-center justify-center gap-2 px-5 text-center text-[13px] text-ink-2 italic sm:px-8">
           <ShieldCheck className="size-4 shrink-0 text-accent not-italic" strokeWidth={2} />
-          SEC Rule 506(c) verification · Every letter signed by a licensed attorney
+          Built for Rule 506(c) · Investor data never touches your inbox
         </p>
       </div>
       <div className="border-b border-line bg-paper">
@@ -99,7 +99,7 @@ function Footer() {
         <div className="grid gap-10 sm:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div>
             <Wordmark className="h-8 w-auto" />
-            <p className="mt-4 max-w-xs text-[14px] leading-relaxed text-ink-3">One reusable accredited investor verification for every fund you invest in.</p>
+            <p className="mt-4 max-w-xs text-[14px] leading-relaxed text-ink-3">Proof without the paperwork. Accredited investor verification that gets 506(c) raises to close.</p>
           </div>
           {FOOTER_COLS.map((c) => (
             <div key={c.title}>
@@ -118,7 +118,7 @@ function Footer() {
         </div>
         <div className="mt-12 flex flex-col justify-between gap-3 border-t border-line pt-6 text-[13px] leading-relaxed text-ink-3 sm:flex-row">
           <p className="max-w-2xl">
-            Verification under SEC Rule 506(c). Letters are signed by licensed attorneys. Your financial documents are never shared with funds, only your verification status. Not investment advice.
+            Savy does not provide legal, tax or investment advice. Consult counsel on how Rule 506(c) applies to your offering.
           </p>
           <p className="shrink-0 font-semibold tracking-wide uppercase">{isMock ? 'Sandbox · demo data' : `© ${new Date().getFullYear()} ${BRAND.name}`}</p>
         </div>

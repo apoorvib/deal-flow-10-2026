@@ -48,11 +48,11 @@ export function QualifyStep() {
             >
               <Icon className={cn('size-5 shrink-0', on ? 'text-accent' : 'text-ink-3')} strokeWidth={1.75} />
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-[17px] font-semibold text-ink">
+                <span className="flex items-center gap-2 text-[14px] text-ink-3">
                   {p.title}
                   {p.id === fastest && <span className="rounded-full bg-ok-soft px-2 py-0.5 text-[12px] font-semibold text-ok">Fastest</span>}
                 </span>
-                <span className="block text-[15px] text-ink-3">{SHORT[p.id](t)}</span>
+                <span className="mt-0.5 block text-[18px] font-semibold text-ink">{SHORT[p.id](t)}</span>
               </span>
               <span className={cn('grid size-5 shrink-0 place-items-center rounded-full border', on ? 'border-accent' : 'border-line-strong')} aria-hidden>
                 {on && <span className="size-2.5 rounded-full bg-accent" />}

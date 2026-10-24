@@ -19,7 +19,8 @@ const PROCESS = [
 export default function GetStarted() {
   return (
     <div className="mx-auto max-w-[760px] px-5 pt-14 pb-6 text-center sm:px-8 sm:pt-20">
-      <h1 className="display text-[clamp(34px,5vw,52px)] leading-[1.08] text-ink">Get verified in about 10 minutes</h1>
+      <h1 className="display text-[clamp(34px,5vw,52px)] leading-[1.08] text-ink">Verify your status privately</h1>
+      <p className="mt-3 text-[18px] text-ink-2">About 10 minutes. Your tax returns never go to a fund manager&rsquo;s inbox.</p>
 
       {/* The process at a glance */}
       <ol className="mx-auto mt-10 flex max-w-xl items-start justify-between">
@@ -50,7 +51,7 @@ export default function GetStarted() {
         ))}
       </div>
 
-      <p className="mt-8 text-[15px] text-ink-3">Have your ID and bank login handy · No credit check · Saves as you go</p>
+      <p className="mt-8 text-[15px] text-ink-3">Have your ID and bank login handy · Saves as you go</p>
       <p className="mt-3 text-[15px] text-ink-3">
         Already verified?{' '}
         <Link to="/find" className="link font-semibold">

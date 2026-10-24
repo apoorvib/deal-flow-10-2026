@@ -1,4 +1,4 @@
-import { AlertTriangle, FileText, Sparkles, Upload, X } from 'lucide-react'
+import { AlertTriangle, FileText, Lock, Upload, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -54,7 +54,7 @@ export function DocumentUploader({ title, hint }: { title: string; hint: string 
       <div className="flex items-baseline justify-between">
         <h3 className="text-[16px] font-medium text-ink">{title}</h3>
         <span className="flex items-center gap-1 text-[12px] text-ink-3">
-          <Sparkles className="size-3 text-brass" /> Read automatically
+          <Lock className="size-3 text-accent" /> Goes to Savy, not the fund
         </span>
       </div>
 
