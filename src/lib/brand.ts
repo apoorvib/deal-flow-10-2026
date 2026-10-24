@@ -1,7 +1,7 @@
-// Placeholder product identity: rename in one place.
+// Product identity: rename in one place.
 export const BRAND = {
-  name: 'Dealflow Passport',
-  short: 'Passport',
+  name: 'Savy',
+  short: 'Savy',
   /** Three-letter code printed in the passport's machine-readable line. */
-  code: 'DFP',
+  code: 'SVY',
 } as const

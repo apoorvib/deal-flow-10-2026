@@ -21,8 +21,8 @@ export function ChecksList({ checks, className }: { checks: Check[]; className?:
           className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 px-5 py-3.5"
         >
           <span className="mt-0.5">{ICON[c.result]}</span>
-          <span className="text-[14px] text-ink">{c.label}</span>
-          <span className="col-start-2 text-[13px] leading-relaxed text-ink-3">{c.detail}</span>
+          <span className="text-[15px] text-ink">{c.label}</span>
+          <span className="col-start-2 text-[14px] leading-relaxed text-ink-3">{c.detail}</span>
         </motion.li>
       ))}
     </ul>

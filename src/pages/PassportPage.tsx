@@ -77,11 +77,11 @@ export default function PassportPage() {
                 <p className="display tnum mt-1.5 text-[34px] leading-none text-ink">
                   <NumberFlow value={left} /> <span className="text-[18px] text-ink-2">days</span>
                 </p>
-                <p className="mt-2 text-[13px] text-ink-3">Expires {longDate(p.expiresAt)}</p>
+                <p className="mt-2 text-[14px] text-ink-3">Expires {longDate(p.expiresAt)}</p>
               </div>
             </div>
             {renewSoon && (
-              <Link to="/verify" className="mt-5 flex items-center justify-between rounded-xl bg-brass-soft px-4 py-3 text-[13.5px] text-ink">
+              <Link to="/verify" className="mt-5 flex items-center justify-between rounded-xl bg-brass-soft px-4 py-3 text-[15px] text-ink">
                 <span>Refresh now so your next close isn&rsquo;t held up.</span>
                 <RefreshCw className="size-4 text-brass" />
               </Link>
@@ -97,7 +97,7 @@ export default function PassportPage() {
               v={
                 <button
                   type="button"
-                  className="group inline-flex items-center gap-2 font-mono text-[13px] text-ink"
+                  className="group inline-flex items-center gap-2 font-mono text-[14px] text-ink"
                   onClick={() => {
                     navigator.clipboard?.writeText(p.letterRef).then(() => toast.success('Reference copied'), () => {})
                   }}
@@ -111,19 +111,19 @@ export default function PassportPage() {
 
           <Card className="p-6">
             <div className="flex items-baseline justify-between">
-              <p className="text-[14.5px] font-medium text-ink">Shared with</p>
-              <Link to={`/passport/${p.id}/deals`} className="text-[13px] text-ink-3 underline decoration-line-strong underline-offset-4 hover:text-ink">
+              <p className="text-[16px] font-medium text-ink">Shared with</p>
+              <Link to={`/passport/${p.id}/deals`} className="text-[14px] text-ink-3 underline decoration-line-strong underline-offset-4 hover:text-ink">
                 Manage
               </Link>
             </div>
             {shares.length === 0 ? (
-              <p className="mt-3 text-[13.5px] text-ink-3">No funds yet. Funds you share with see your status and expiry, nothing else.</p>
+              <p className="mt-3 text-[15px] text-ink-3">No funds yet. Funds you share with see your status and expiry, nothing else.</p>
             ) : (
               <ul className="mt-4 space-y-2.5">
                 {shares.map((s) => {
                   const f = funds.find((x) => x.id === s.fundId)
                   return (
-                    <li key={s.id} className="flex items-center justify-between text-[13.5px]">
+                    <li key={s.id} className="flex items-center justify-between text-[15px]">
                       <span className="text-ink">{f?.name ?? s.fundId}</span>
                       <span className="text-ink-3">{s.views.length} view{s.views.length === 1 ? '' : 's'}</span>
                     </li>
@@ -136,8 +136,8 @@ export default function PassportPage() {
       </div>
 
       <section className="mt-16">
-        <h2 className="text-[15px] font-medium text-ink">Audit trail</h2>
-        <p className="mt-1 text-[13.5px] text-ink-3">The checks behind your letter. Funds can request this file as evidence of reasonable steps under Rule 506(c).</p>
+        <h2 className="text-[16px] font-medium text-ink">Audit trail</h2>
+        <p className="mt-1 text-[15px] text-ink-3">The checks behind your letter. Funds can request this file as evidence of reasonable steps under Rule 506(c).</p>
         <ChecksList checks={p.checks} className="mt-5" />
       </section>
     </div>
@@ -147,8 +147,8 @@ export default function PassportPage() {
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 px-6 py-3.5">
-      <span className="text-[13px] text-ink-3">{k}</span>
-      <span className="text-[14px] text-ink">{v}</span>
+      <span className="text-[14px] text-ink-3">{k}</span>
+      <span className="text-[15px] text-ink">{v}</span>
     </div>
   )
 }
@@ -184,7 +184,7 @@ export function PageSkeleton() {
       <div className="h-3 w-28 animate-pulse rounded-full bg-line" />
       <div className="mt-4 h-9 w-72 animate-pulse rounded-lg bg-line" />
       <div className="mt-10 grid gap-8 lg:grid-cols-[1.15fr_1fr]">
-        <div className="aspect-[1.586/1] animate-pulse rounded-[22px] bg-line" />
+        <div className="aspect-[1.586/1] animate-pulse rounded-[14px] bg-line" />
         <div className="grid content-start gap-5">
           <div className="h-32 animate-pulse rounded-2xl bg-line" />
           <div className="h-48 animate-pulse rounded-2xl bg-line" />

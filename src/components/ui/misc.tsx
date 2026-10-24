@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 
 export function Card({ className, children, as: As = 'div' }: { className?: string; children: ReactNode; as?: 'div' | 'section' | 'article' }) {
-  return <As className={cn('rounded-2xl border border-line bg-surface shadow-card', className)}>{children}</As>
+  return <As className={cn('rounded-2xl border border-line bg-raised shadow-card', className)}>{children}</As>
 }
 
 type Tone = 'neutral' | 'ok' | 'warn' | 'danger' | 'brass'
@@ -69,10 +69,10 @@ export function ChoiceCard({
       )}
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-center justify-between gap-3">
-          <span className="text-[15px] font-medium text-ink">{title}</span>
+          <span className="text-[16px] font-medium text-ink">{title}</span>
           {meta}
         </span>
-        <span className="text-[13.5px] leading-relaxed text-ink-2">{description}</span>
+        <span className="text-[15px] leading-relaxed text-ink-2">{description}</span>
       </span>
       <span
         className={cn(
@@ -109,7 +109,7 @@ export function Checkbox({ checked, onChange, children, id }: { checked: boolean
           </motion.svg>
         )}
       </span>
-      <span className="text-[13.5px] leading-relaxed text-ink-2">{children}</span>
+      <span className="text-[15px] leading-relaxed text-ink-2">{children}</span>
     </label>
   )
 }
@@ -118,15 +118,3 @@ export function Divider({ className }: { className?: string }) {
   return <hr className={cn('border-0 border-t border-line', className)} />
 }
 
-/** Tiny wordmark: a rosette seal + name. */
-export function Seal({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <g fill="none" stroke="currentColor">
-        <circle cx="16" cy="16" r="14.5" strokeWidth="1" />
-        <circle cx="16" cy="16" r="11" strokeWidth="0.75" strokeDasharray="1.2 1.6" />
-        <path d="M10.5 16.4l3.6 3.6 7.4-8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
-  )
-}

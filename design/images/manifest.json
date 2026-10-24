@@ -1,0 +1,166 @@
+{
+  "project": "Savy website",
+  "description": "AI-generated stock imagery showing the outcome of Savy (relief, relaxation, deal closing, status)",
+  "images": [
+    {
+      "file": "img/01-office-skyline-relaxed.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154422_4b0174f7-3128-4ea2-86f7-598cbf72cfa1.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "relief",
+      "alt": "Fund manager leaning back in corner office, Manhattan skyline"
+    },
+    {
+      "file": "img/02-handshake-boardroom.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154421_2f051d56-fd66-4d85-a57d-571eadddb934.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "deal-closing",
+      "alt": "Handshake across walnut boardroom table"
+    },
+    {
+      "file": "img/03-exec-signing-pen.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154420_3ba9dd1f-aa19-4999-8599-1f2db1904b62.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "deal-closing",
+      "alt": "Woman exec signing with fountain pen"
+    },
+    {
+      "file": "img/04-champagne-toast-dusk.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154421_13f190a9-e7ed-4dcb-bd7c-57b4d52cf8fb.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "deal-closing",
+      "alt": "Investors toasting champagne at dusk"
+    },
+    {
+      "file": "img/05-espresso-coastal-terrace.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154447_c31b7c0a-74ce-43ed-8d80-5462c9ac2d65.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "relaxation",
+      "alt": "Espresso on luxury hotel terrace, coast view"
+    },
+    {
+      "file": "img/06-laptop-relief-check.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154419_57204b34-a14b-4b1c-bd45-570e01f11fda.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "relief",
+      "alt": "GP relieved at laptop completion screen"
+    },
+    {
+      "file": "img/07-execs-leaving-hq.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154447_1e891962-dd5f-42d5-ba0e-5a8b1b842e05.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "status",
+      "alt": "Two execs laughing leaving glass lobby"
+    },
+    {
+      "file": "img/08-arrival-private-club.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154420_d0e64847-fb8e-49c6-b17d-f7599ebd6586.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "status",
+      "alt": "Businesswoman arriving at private members club"
+    },
+    {
+      "file": "img/09-club-library-partners.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154421_b572ce5e-17a0-4c13-b717-aaca0ceab78f.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "status",
+      "alt": "Partners talking in wood-paneled club library"
+    },
+    {
+      "file": "img/10-yacht-golden-hour.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154421_eea533ad-3b16-403c-afe8-637821c245fa.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "relaxation",
+      "alt": "Man on yacht deck at golden hour"
+    },
+    {
+      "file": "hero/11-hero-window-skyline.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154648_994db53e-6917-4dc9-bf06-893fcd3a81f4.png",
+      "aspect_ratio": "21:9",
+      "role": "hero",
+      "theme": "relief",
+      "alt": "fund manager at window, skyline"
+    },
+    {
+      "file": "hero/12-hero-boardroom-handshake.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154647_fc65c0ac-cc18-4ff1-9030-677cb7d5fd58.png",
+      "aspect_ratio": "21:9",
+      "role": "hero",
+      "theme": "deal-closing",
+      "alt": "boardroom handshake"
+    },
+    {
+      "file": "hero/13-hero-lounge-relaxed.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154646_f37fe434-836f-4f03-9a59-82e31ef10508.png",
+      "aspect_ratio": "21:9",
+      "role": "hero",
+      "theme": "relaxation",
+      "alt": "exec relaxing in lounge chair"
+    },
+    {
+      "file": "img/14-pen-term-sheet.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154647_f15bf405-a9bd-4ab4-9e73-c45c256d033f.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "deal-closing",
+      "alt": "Pen set down on signed term sheet"
+    },
+    {
+      "file": "img/15-sidewalk-phone-call.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154647_5fa2c481-17f8-44a3-9dcd-637a05b4227e.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "relief",
+      "alt": "Investor laughing on call, city sidewalk"
+    },
+    {
+      "file": "img/16-team-celebrating.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154646_c038b68b-a6fa-4830-b19c-bafad071e5d8.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "deal-closing",
+      "alt": "Team celebrating around laptop"
+    },
+    {
+      "file": "img/17-private-jet.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154647_606d0565-2672-4509-aac4-4890bfde7710.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "status",
+      "alt": "Businessman relaxing in private jet seat"
+    },
+    {
+      "file": "img/18-espresso-toast-cafe.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154648_33588c59-ec01-47b6-8119-996f28066659.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "relaxation",
+      "alt": "Partners toasting espresso, European cafe"
+    },
+    {
+      "file": "img/19-home-office-relief.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154720_d4365fa5-b87d-4b2b-8a09-92cbf5cdb864.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "relief",
+      "alt": "GP leaning back in relief, home office"
+    },
+    {
+      "file": "img/20-dock-sailboat.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3G17YI36vZ7LWzPi55lvjoQIHg5/hf_20261024_154720_2290c1d7-3eba-46b1-8217-b5427f65e09e.png",
+      "aspect_ratio": "3:2",
+      "role": "standard",
+      "theme": "status",
+      "alt": "Couple walking to sailboat at golden hour"
+    }
+  ]
+}

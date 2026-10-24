@@ -52,7 +52,7 @@ export function DocumentUploader({ title, hint }: { title: string; hint: string 
   return (
     <div className="grid gap-3">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[14.5px] font-medium text-ink">{title}</h3>
+        <h3 className="text-[16px] font-medium text-ink">{title}</h3>
         <span className="flex items-center gap-1 text-[12px] text-ink-3">
           <Sparkles className="size-3 text-brass" /> Read automatically
         </span>
@@ -79,10 +79,10 @@ export function DocumentUploader({ title, hint }: { title: string; hint: string 
         <span className="grid size-10 place-items-center rounded-full border border-line bg-surface text-ink-2 transition-transform duration-200 group-hover:-translate-y-0.5">
           <Upload className="size-4" />
         </span>
-        <span className="text-[14px] text-ink">
+        <span className="text-[15px] text-ink">
           <span className="font-medium">Choose files</span> <span className="text-ink-2">or drag them here</span>
         </span>
-        <span className="text-[12.5px] text-ink-3">{hint}</span>
+        <span className="text-[14px] text-ink-3">{hint}</span>
       </button>
       <input ref={input} type="file" multiple accept="application/pdf,image/png,image/jpeg" className="sr-only" onChange={(e) => (handle(e.target.files), (e.target.value = ''))} />
 
@@ -92,8 +92,8 @@ export function DocumentUploader({ title, hint }: { title: string; hint: string 
             <motion.li key={p.key} layout initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="relative overflow-hidden rounded-xl border border-line bg-raised px-4 py-3.5">
               <div className="flex items-center gap-3">
                 <FileText className="size-4 shrink-0 text-ink-3" />
-                <span className="truncate text-[13.5px] text-ink">{p.name}</span>
-                <span className="ml-auto shrink-0 text-[12.5px] text-ink-3">Reading</span>
+                <span className="truncate text-[15px] text-ink">{p.name}</span>
+                <span className="ml-auto shrink-0 text-[14px] text-ink-3">Reading</span>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-3">
                 {[0, 1, 2].map((i) => (
@@ -128,8 +128,8 @@ function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => voi
         <FileText className="mt-0.5 size-4 shrink-0 text-ink-2" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-[13.5px] font-medium text-ink">{DOC_LABEL[doc.docType]}</span>
-            <span className="truncate text-[12.5px] text-ink-3">{doc.fileName}</span>
+            <span className="text-[15px] font-medium text-ink">{DOC_LABEL[doc.docType]}</span>
+            <span className="truncate text-[14px] text-ink-3">{doc.fileName}</span>
           </div>
           <dl className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
             {figure && <Pair k={figure.k} v={figure.v} />}
@@ -146,7 +146,7 @@ function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => voi
             </div>
           </dl>
           {doc.flags.length > 0 && (
-            <p className="mt-2.5 flex items-start gap-1.5 text-[12.5px] text-warn">
+            <p className="mt-2.5 flex items-start gap-1.5 text-[14px] text-warn">
               <AlertTriangle className="mt-px size-3.5 shrink-0" /> {doc.flags.join(' · ')}. A reviewer will look at this.
             </p>
           )}
@@ -163,7 +163,7 @@ function Pair({ k, v }: { k: string; v: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-[11px] tracking-wide text-ink-3 uppercase">{k}</dt>
-      <dd className="tnum mt-0.5 truncate font-mono text-[13px] text-ink">{v}</dd>
+      <dd className="tnum mt-0.5 truncate font-mono text-[14px] text-ink">{v}</dd>
     </div>
   )
 }

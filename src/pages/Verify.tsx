@@ -35,10 +35,15 @@ function Wizard() {
   // Status page deep-links back to a step (e.g. ?step=evidence) to fix an application.
   useEffect(() => {
     const target = params.get('step')
+    const investorType = params.get('type')
     if (target && STEPS.some((s) => s.id === target)) {
       dispatch({ type: 'goto', step: target as StepId })
-      setParams({}, { replace: true })
+    } else if (investorType === 'individual' || investorType === 'joint' || investorType === 'entity') {
+      // Coming from the process page: the investor type is already chosen, so open on details.
+      dispatch({ type: 'patch', patch: { investorType } })
+      dispatch({ type: 'goto', step: 'profile' })
     }
+    if (target || investorType) setParams({}, { replace: true })
   }, [params, setParams, dispatch])
 
   useEffect(() => {
@@ -100,7 +105,7 @@ function Wizard() {
                     disabled={!enabled}
                     onClick={() => go(s.id)}
                     className={cn(
-                      'group flex w-full items-center gap-3 rounded-lg py-2 pr-2 text-left text-[14px] transition-colors',
+                      'group flex w-full items-center gap-3 rounded-lg py-2 pr-2 text-left text-[15px] transition-colors',
                       current ? 'text-ink' : enabled ? 'text-ink-2 hover:text-ink' : 'text-ink-3/70',
                     )}
                   >
@@ -119,7 +124,7 @@ function Wizard() {
               )
             })}
           </ol>
-          <div className="mt-10 rounded-xl border border-line bg-surface p-4 text-[12.5px] leading-relaxed text-ink-3">
+          <div className="mt-10 rounded-xl border border-line bg-surface p-4 text-[14px] leading-relaxed text-ink-3">
             <Lock className="mb-2 size-3.5 text-ink-2" />
             Your progress is saved on this device. Documents are encrypted and are never shared with funds.
           </div>
@@ -132,7 +137,7 @@ function Wizard() {
           <p className="eyebrow">
             Step {index + 1} of {STEPS.length}
           </p>
-          <p className="text-[13px] text-ink-3">{step.title}</p>
+          <p className="text-[14px] text-ink-3">{step.title}</p>
         </div>
         <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-line">
           <motion.div className="h-full rounded-full bg-accent" animate={{ width: `${((index + 1) / STEPS.length) * 100}%` }} />
@@ -162,7 +167,7 @@ function Wizard() {
               <h1 ref={headingRef} tabIndex={-1} className="display mt-2 text-[clamp(30px,4.2vw,42px)] leading-[1.06] text-ink outline-none">
                 {content.heading(draft)}
               </h1>
-              <p className="mt-3 text-[15.5px] leading-relaxed text-ink-2">{content.lede(draft)}</p>
+              <p className="mt-3 text-[17px] leading-relaxed text-ink-2">{content.lede(draft)}</p>
             </header>
             <div className="mt-9 max-w-2xl">
               <content.Body />
@@ -177,7 +182,7 @@ function Wizard() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-4 text-[13.5px] text-danger"
+                className="mb-4 text-[15px] text-danger"
                 role="alert"
               >
                 {blocker}

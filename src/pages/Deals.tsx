@@ -48,11 +48,11 @@ export default function Deals() {
 
   return (
     <div className="mx-auto max-w-4xl px-5 pt-10 pb-10 sm:px-8 sm:pt-14">
-      <Link to={`/passport/${id}`} className="inline-flex items-center gap-1.5 text-[13px] text-ink-3 transition-colors hover:text-ink">
+      <Link to={`/passport/${id}`} className="inline-flex items-center gap-1.5 text-[14px] text-ink-3 transition-colors hover:text-ink">
         <ArrowLeft className="size-3.5" /> Passport
       </Link>
       <h1 className="display mt-4 text-[clamp(30px,4.4vw,44px)] leading-[1.05] text-ink">Open allocations</h1>
-      <p className="mt-3 max-w-xl text-[15.5px] leading-relaxed text-ink-2">These funds accept your passport. Sharing gives their compliance team your verified status, so you can skip their accreditation paperwork.</p>
+      <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink-2">These funds accept your passport. Sharing gives their compliance team your verified status, so you can skip their accreditation paperwork.</p>
 
       <ul className="mt-10 grid gap-3">
         {!funds &&
@@ -66,12 +66,12 @@ export default function Deals() {
                   <span className="display grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-surface text-[17px] text-ink-2">{f.name.charAt(0)}</span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-[15.5px] font-medium text-ink">{f.name}</h3>
+                      <h3 className="text-[17px] font-medium text-ink">{f.name}</h3>
                       <Badge tone="neutral" className="font-mono text-[10.5px]">
                         {f.offering}
                       </Badge>
                     </div>
-                    <p className="mt-0.5 text-[13.5px] text-ink-2">
+                    <p className="mt-0.5 text-[15px] text-ink-2">
                       {f.manager} · {f.strategy}
                     </p>
                     <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[12px] text-ink-3">
@@ -83,7 +83,7 @@ export default function Deals() {
                 <div className="shrink-0">
                   {s ? (
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-ok">
+                      <span className="inline-flex items-center gap-1.5 text-[15px] font-medium text-ok">
                         <Check className="size-4" strokeWidth={2.5} /> Shared
                       </span>
                       <Button variant="ghost" size="sm" onClick={() => revoke(s, f)}>
@@ -102,7 +102,7 @@ export default function Deals() {
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                     <div className="border-t border-line px-5 py-3 sm:px-6">
                       {s.views.map((v) => (
-                        <p key={v.at} className="flex items-center gap-2 text-[12.5px] text-ink-3">
+                        <p key={v.at} className="flex items-center gap-2 text-[14px] text-ink-3">
                           <Eye className="size-3.5" /> Viewed by {v.by} · {dateTime(v.at)}
                         </p>
                       ))}
@@ -130,10 +130,10 @@ export default function Deals() {
                   className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-raised p-6 shadow-lift focus:outline-none"
                 >
                   <Dialog.Title className="display text-[23px] leading-tight text-ink">Share with {confirming.name}?</Dialog.Title>
-                  <Dialog.Description className="mt-1.5 text-[13.5px] text-ink-2">
+                  <Dialog.Description className="mt-1.5 text-[15px] text-ink-2">
                     {confirming.manager}&rsquo;s compliance team will be able to see:
                   </Dialog.Description>
-                  <ul className="mt-5 space-y-2.5 text-[14px]">
+                  <ul className="mt-5 space-y-2.5 text-[15px]">
                     {[
                       'Accredited investor status: verified',
                       `Basis: ${PATHWAY_LABEL[passport.passport.pathway]}`,

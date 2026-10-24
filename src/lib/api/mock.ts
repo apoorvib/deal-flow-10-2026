@@ -245,6 +245,14 @@ export const mockApi: Api = {
     const p = must(db.passports[pid], 'Passport')
     return { passport: p, active: new Date(p.expiresAt) > new Date() }
   },
+  async findPassport(email, letterRef) {
+    await wait(700)
+    const ref = letterRef.trim().toUpperCase()
+    const p = Object.values(db.passports).find(
+      (x) => x.letterRef === ref && db.verifications[x.verificationId]?.input.profile.email.toLowerCase() === email.trim().toLowerCase(),
+    )
+    return p ? { passportId: p.id } : null
+  },
   async listFunds() {
     await wait(300)
     return FUNDS

@@ -74,10 +74,10 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
           my.set(0.5)
         }}
         style={tilt ? { rotateX: rotX, rotateY: rotY, transformStyle: 'preserve-3d' } : undefined}
-        className="relative aspect-[1.586/1] w-full overflow-hidden rounded-[22px] bg-[#16302a] text-[#efe9dc] shadow-[0_1px_0_rgb(255_255_255/0.08)_inset,0_30px_60px_-24px_rgb(10_20_16/0.55),0_12px_24px_-12px_rgb(10_20_16/0.35)] select-none"
+        className="relative aspect-[1.586/1] w-full overflow-hidden rounded-[14px] bg-[#04493a] text-[#efe9dc] shadow-[0_1px_0_rgb(255_255_255/0.08)_inset,0_30px_60px_-24px_rgb(2_30_24/0.5),0_12px_24px_-12px_rgb(2_30_24/0.3)] select-none"
       >
         {/* Base tone and vignette */}
-        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_20%,#24473c_0%,#16302a_45%,#0f231e_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_20%,#0b6a52_0%,#04493a_50%,#022a21_100%)]" />
 
         {/* Guilloche */}
         <svg viewBox="0 0 600 378" className="absolute inset-0 size-full" preserveAspectRatio="xMidYMid slice" aria-hidden>
@@ -99,7 +99,7 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
         <div className="relative flex h-full flex-col justify-between p-[6%]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="font-mono text-[clamp(8px,1.5vw,10.5px)] tracking-[0.22em] text-[#d8c39a]/80 uppercase">{BRAND.name}</div>
+              <div className="font-sans font-semibold text-[clamp(8px,1.5vw,11px)] tracking-[0.2em] text-[#d8c39a]/80 uppercase">{BRAND.name}</div>
               <div className="display mt-1 text-[clamp(17px,3.4vw,25px)] leading-none">Accredited Investor</div>
             </div>
             <FoilSeal />

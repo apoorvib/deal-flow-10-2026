@@ -1,6 +1,6 @@
-# Dealflow Passport (frontend)
+# Savy (frontend)
 
-React UI that lets an LP get verified as an accredited investor once, then share a reusable passport with funds. Product research: [accredited-lp-verification-research.md](accredited-lp-verification-research.md).
+React UI that lets an LP get verified as an accredited investor once, then share a reusable passport with funds. Product research: [plan.md](plan.md).
 
 ## Run
 
@@ -26,6 +26,7 @@ Opens on http://localhost:5173. With no backend configured, the app uses a mock 
 | POST | `/verifications` | `ApplicationInput` | `Verification` |
 | GET | `/verifications/:id` | | `Verification` |
 | GET | `/passports/:id` | | `{ passport, active }` |
+| POST | `/passports/lookup` | `{ email, letterRef }` | `{ passportId }` or `null` |
 | GET | `/funds` | | `Fund[]` |
 | GET | `/passports/:id/shares` | | `Share[]` |
 | POST | `/passports/:id/shares` | `{ fundId }` | `Share` |
@@ -35,4 +36,4 @@ The backend owns every decision. `src/lib/rules.ts` mirrors the thresholds only 
 
 ## Stack
 
-Vite, React 19, TypeScript, Tailwind v4, Motion, NumberFlow, Radix primitives, Lucide, Sonner. The placeholder brand name lives in `src/lib/brand.ts`.
+Vite, React 19, TypeScript, Tailwind v4, Motion, NumberFlow, Radix primitives, Lucide, Sonner. Brand name lives in `src/lib/brand.ts`; logo files (transparent PNGs, plus a reversed version for dark backgrounds) are in `src/assets/`.

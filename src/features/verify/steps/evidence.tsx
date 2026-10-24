@@ -96,7 +96,7 @@ function NetWorthEvidence() {
       <DocumentUploader title="Or upload statements" hint="Bank or brokerage statements from the last 90 days" />
 
       <div className="grid gap-5">
-        <h3 className="text-[14.5px] font-medium text-ink">Everything else</h3>
+        <h3 className="text-[16px] font-medium text-ink">Everything else</h3>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Other assets" optional hint="Real estate (not your home), private holdings, other accounts">
             <MoneyInput value={nw.otherAssets} onChange={(n) => set({ otherAssets: n })} />
@@ -106,9 +106,9 @@ function NetWorthEvidence() {
           </Field>
         </div>
         <details className="group rounded-xl border border-line bg-surface open:pb-5">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-[14px] text-ink marker:hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-[15px] text-ink marker:hidden">
             Primary residence
-            <span className="text-[12.5px] text-ink-3 group-open:hidden">Only matters if your mortgage exceeds its value or grew recently</span>
+            <span className="text-[14px] text-ink-3 group-open:hidden">Only matters if your mortgage exceeds its value or grew recently</span>
           </summary>
           <div className="grid gap-5 px-5 sm:grid-cols-3">
             <Field label="Home value">
@@ -148,7 +148,7 @@ function NetWorthMeter({ verified, assets, liabilities, netWorth }: { verified: 
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className={cn('inline-flex items-center gap-1.5 text-[13px] font-medium', meets ? 'text-ok' : 'text-ink-3')}
+            className={cn('inline-flex items-center gap-1.5 text-[14px] font-medium', meets ? 'text-ok' : 'text-ink-3')}
           >
             {meets ? <CircleCheck className="size-4" /> : null}
             {meets ? 'Above $1M threshold' : `${usd(Math.max(0, th - netWorth))} to go`}
@@ -164,7 +164,7 @@ function NetWorthMeter({ verified, assets, liabilities, netWorth }: { verified: 
         </div>
       </div>
 
-      <dl className="mt-9 grid grid-cols-3 gap-4 border-t border-line pt-4 text-[12.5px]">
+      <dl className="mt-9 grid grid-cols-3 gap-4 border-t border-line pt-4 text-[14px]">
         <MeterStat k="Verified assets" v={verified} swatch="bg-accent" />
         <MeterStat k="Total assets" v={assets} swatch="bg-accent/35" />
         <MeterStat k="Liabilities" v={liabilities} />
@@ -180,7 +180,7 @@ function MeterStat({ k, v, swatch }: { k: string; v: number; swatch?: string }) 
         {swatch && <span className={cn('size-2 rounded-full', swatch)} />}
         {k}
       </dt>
-      <dd className="tnum mt-1 font-mono text-[13.5px] text-ink">
+      <dd className="tnum mt-1 font-mono text-[15px] text-ink">
         <NumberFlow value={v} format={{ style: 'currency', currency: 'USD', maximumFractionDigits: 0 }} />
       </dd>
     </div>
@@ -211,7 +211,7 @@ function AccountLinker() {
   return (
     <div className="grid gap-3">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[14.5px] font-medium text-ink">Linked accounts</h3>
+        <h3 className="text-[16px] font-medium text-ink">Linked accounts</h3>
         <span className="text-[12px] text-ink-3">Read-only · fastest path</span>
       </div>
 
@@ -222,20 +222,20 @@ function AccountLinker() {
               <motion.li key={a.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }} className="flex items-center gap-3 px-4 py-3.5">
                 <span className="grid size-8 place-items-center rounded-lg border border-line bg-surface font-mono text-[11px] text-ink-2">{a.institution.slice(0, 2).toUpperCase()}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13.5px] text-ink">{a.name}</p>
+                  <p className="truncate text-[15px] text-ink">{a.name}</p>
                   <p className="text-[12px] text-ink-3 capitalize">
                     {a.institution} · {a.kind}
                   </p>
                 </div>
-                <span className="tnum font-mono text-[13.5px] text-ink">{usd(a.balance)}</span>
+                <span className="tnum font-mono text-[15px] text-ink">{usd(a.balance)}</span>
               </motion.li>
             ))}
           </ul>
           <div className="flex items-center justify-between border-t border-line bg-surface px-4 py-2.5">
-            <button type="button" className="text-[12.5px] text-ink-3 underline decoration-line-strong underline-offset-4 hover:text-ink" onClick={() => dispatch({ type: 'patch', patch: { accountLink: null } })}>
+            <button type="button" className="text-[14px] text-ink-3 underline decoration-line-strong underline-offset-4 hover:text-ink" onClick={() => dispatch({ type: 'patch', patch: { accountLink: null } })}>
               Disconnect
             </button>
-            <button type="button" className="text-[12.5px] text-ink-2 hover:text-ink" onClick={() => setOpen(true)}>
+            <button type="button" className="text-[14px] text-ink-2 hover:text-ink" onClick={() => setOpen(true)}>
               + Add institution
             </button>
           </div>
@@ -246,8 +246,8 @@ function AccountLinker() {
             <Link2 className="size-4" />
           </span>
           <span className="flex-1">
-            <span className="block text-[14px] font-medium text-ink">Link bank and brokerage accounts</span>
-            <span className="block text-[12.5px] text-ink-3">Most US banks and brokerages. We see balances only and can&rsquo;t move money.</span>
+            <span className="block text-[15px] font-medium text-ink">Link bank and brokerage accounts</span>
+            <span className="block text-[14px] text-ink-3">Most US banks and brokerages. We see balances only and can&rsquo;t move money.</span>
           </span>
           <span className="text-ink-3 transition-transform group-hover:translate-x-0.5">&rarr;</span>
         </button>
@@ -269,7 +269,7 @@ function AccountLinker() {
                 >
                   <div className="px-6 pt-6">
                     <Dialog.Title className="display text-[22px] text-ink">Select your institution</Dialog.Title>
-                    <Dialog.Description className="mt-1 text-[13.5px] text-ink-2">Sign in on your bank&rsquo;s own page. We never see your password.</Dialog.Description>
+                    <Dialog.Description className="mt-1 text-[15px] text-ink-2">Sign in on your bank&rsquo;s own page. We never see your password.</Dialog.Description>
                     <div className="relative mt-5">
                       <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-3" />
                       <Input autoFocus placeholder="Search" className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -282,7 +282,7 @@ function AccountLinker() {
                           type="button"
                           disabled={!!busy}
                           onClick={() => connect(inst)}
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14px] text-ink transition-colors hover:bg-ink/[0.04] disabled:opacity-50"
+                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] text-ink transition-colors hover:bg-ink/[0.04] disabled:opacity-50"
                         >
                           <span className="grid size-8 place-items-center rounded-lg border border-line bg-surface font-mono text-[11px] text-ink-2">{inst.slice(0, 2).toUpperCase()}</span>
                           {inst}
@@ -345,8 +345,8 @@ function LicenseEvidence() {
               lic.type === l.id ? 'border-accent bg-raised shadow-[0_0_0_1px_var(--accent)]' : 'border-line bg-raised hover:border-line-strong',
             )}
           >
-            <span className="block text-[14.5px] font-medium text-ink">{l.label}</span>
-            <span className="block text-[12.5px] text-ink-3">{l.sub}</span>
+            <span className="block text-[16px] font-medium text-ink">{l.label}</span>
+            <span className="block text-[14px] text-ink-3">{l.sub}</span>
           </button>
         ))}
       </div>
@@ -362,7 +362,7 @@ function LicenseEvidence() {
         {lic.lookup && (
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={cn('flex items-center gap-3 rounded-xl border px-4 py-3.5', lic.lookup.found ? 'border-ok/30 bg-ok-soft' : 'border-danger/30 bg-danger-soft')}>
             {lic.lookup.found ? <CircleCheck className="size-5 text-ok" /> : <CircleX className="size-5 text-danger" />}
-            <p className="text-[13.5px] text-ink">
+            <p className="text-[15px] text-ink">
               {lic.lookup.found ? `Active ${LICENSES.find((l) => l.id === lic.type)?.label} found on BrokerCheck for CRD ${lic.crd}.` : `No active registration found for CRD ${lic.crd}. Check the number and try again.`}
             </p>
           </motion.div>
@@ -383,7 +383,7 @@ function MinInvestmentEvidence() {
       <Field label="Your commitment to this offering" hint={v == null ? `At least ${usd(th)} in cash, paid at closing` : <ThresholdHint ok={v >= th} text={v >= th ? 'Meets the minimum' : `Below ${usd(th)}`} />}>
         <MoneyInput value={v} onChange={(n) => dispatch({ type: 'section', key: 'minInvestment', patch: { commitment: n } })} placeholder={th.toLocaleString()} />
       </Field>
-      <div className="rounded-xl border border-line bg-surface p-5 text-[13.5px] leading-relaxed text-ink-2">
+      <div className="rounded-xl border border-line bg-surface p-5 text-[15px] leading-relaxed text-ink-2">
         <p className="font-medium text-ink">Why there&rsquo;s nothing to upload</p>
         <p className="mt-1.5">
           Under SEC guidance from March 2025, a commitment of {usd(th)} or more, plus your written statement that it isn&rsquo;t financed by a third party, counts as reasonable verification. You&rsquo;ll sign that statement on the next step.
