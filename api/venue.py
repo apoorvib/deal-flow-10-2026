@@ -1,8 +1,9 @@
 """Debate artifact venues.
 
 Every event is written to the local JSON venue first. When the Roundtable
-credentials and base URL are configured, the same event is mirrored remotely;
-remote errors are deliberately swallowed so verification remains available.
+agent credentials are configured, the same event is mirrored into the agent's
+Roundtable bank through the documented HTTP tool API. Remote errors are
+deliberately swallowed so verification remains available.
 """
 
 from __future__ import annotations
@@ -89,25 +90,25 @@ class RoundtableVenue(LocalJsonVenue):
 
     def __init__(self) -> None:
         self.key = (os.getenv("ROUNDTABLE_API_KEY") or "").strip()
-        self.base_url = (os.getenv("ROUNDTABLE_API_URL") or "").strip().rstrip("/")
+        self.base_url = (os.getenv("ROUNDTABLE_API_URL") or "https://roundtable.bot").strip().rstrip("/")
         self.timeout = float(os.getenv("ROUNDTABLE_TIMEOUT_SECONDS", "8"))
-        self.remote_ids: dict[str, str] = {}
 
     @property
     def enabled(self) -> bool:
         return bool(self.key and self.base_url)
 
-    def _request(self, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    def _request(self, tool: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         if not self.enabled:
             return None
         try:
+            path = f"/api/tools/{tool}"
             with span("roundtable.tool", model="roundtable", input_text=json.dumps({
-                "method": method, "path": path, "payload": payload,
+                "tool": tool, "payload": payload,
             })) as trace:
                 response = httpx.request(
-                    method,
+                    "POST",
                     f"{self.base_url}{path}",
-                    headers={"Authorization": f"Bearer {self.key}", "X-API-Key": self.key,
+                    headers={"Authorization": f"Bearer {self.key}",
                              "Content-Type": "application/json"},
                     json=payload,
                     timeout=self.timeout,
@@ -121,30 +122,42 @@ class RoundtableVenue(LocalJsonVenue):
             pass
         return None
 
+    def _write_artifact(self, path: str, payload: dict[str, Any], message: str) -> None:
+        self._request("write_file", {
+            "request_id": f"savy-{uuid.uuid4().hex}",
+            "path": path,
+            "content": json.dumps(_safe(payload), indent=2, sort_keys=True),
+            "message": message[:2000],
+            "create_only": True,
+        })
+
     def open_thread(self, kind: str, title: str, metadata: dict[str, Any] | None = None) -> str:
         local_id = super().open_thread(kind, title, metadata)
-        remote = self._request("POST", "/threads", {"kind": kind, "title": title,
-                                                     "metadata": _safe(metadata or {})})
-        remote_id = (remote or {}).get("id") or (remote or {}).get("thread_id")
-        if remote_id:
-            self.remote_ids[local_id] = str(remote_id)
+        self._write_artifact(
+            f"savy/debates/{local_id}/00-thread.json",
+            {"id": local_id, "kind": kind, "title": title, "metadata": metadata or {},
+             "created_at": _now()},
+            f"Create SAVY {kind} debate {local_id}",
+        )
         return local_id
 
     def post_message(self, thread_id: str, actor: str, content: Any,
                      metadata: dict[str, Any] | None = None) -> dict[str, Any]:
         message = super().post_message(thread_id, actor, content, metadata)
-        remote_id = self.remote_ids.get(thread_id)
-        if remote_id:
-            self._request("POST", f"/threads/{remote_id}/messages",
-                          {"actor": actor, "content": _safe(content), "metadata": _safe(metadata or {})})
+        self._write_artifact(
+            f"savy/debates/{thread_id}/messages/{message['id']}.json",
+            message,
+            f"Record {actor} message in SAVY debate {thread_id}",
+        )
         return message
 
     def version(self, thread_id: str, stage: str, payload: dict[str, Any]) -> dict[str, Any]:
         version = super().version(thread_id, stage, payload)
-        remote_id = self.remote_ids.get(thread_id)
-        if remote_id:
-            self._request("POST", f"/threads/{remote_id}/versions",
-                          {"stage": stage, "payload": _safe(payload)})
+        self._write_artifact(
+            f"savy/debates/{thread_id}/versions/{version['id']}.json",
+            version,
+            f"Record {stage} version in SAVY debate {thread_id}",
+        )
         return version
 
 

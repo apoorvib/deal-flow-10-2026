@@ -12,7 +12,7 @@ Updated 2026-10-24 after taking over the in-progress Ninoo work.
 - Added scripts/seed_demo.py and seeded fixtures/cache/debates/ for all seven synthetic document fixtures. Run python scripts/seed_demo.py after changing fixture bytes.
 - Updated api/migrations/001_auth.sql for admin roles, sign-in links, and admin session views.
 - Added PRISM HTTP tracing with local JSONL fallback, including the passport-issuance guardrail call.
-- Added Roundtable/local debate venues; every thread, round message, and version is written locally before an optional remote mirror.
+- Added Roundtable/local debate venues; every thread, round message, and version is written locally before an optional remote mirror through Roundtable's documented `write_file` tool API.
 - Added live akta.pro company search, enrichment, and negative-news corroboration with fixture fallback.
 - Added Solari evidence metadata and traced BrokerCheck lookups with screenshot/source fallback fields.
 
