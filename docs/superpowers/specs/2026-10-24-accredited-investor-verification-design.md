@@ -1,346 +1,267 @@
-# Accredited Investor Verification — Hackathon Build Spec
+# Savy — Backend Design Spec
 
 *Deal Flow @ Betaworks · October 24, 2026 · judging tonight*
 
-Product research and market context: [`plan.md`](../../../plan.md). Sponsor resources: [`resources.md`](../../../resources.md).
+**Read this first if you are picking up this repo cold.** It is the authoritative description of the backend. Market research: [`plan.md`](../../../plan.md). Sponsor tools: [`resources.md`](../../../resources.md). Task sequence: [`../plans/2026-10-24-accredited-investor-verification.md`](../plans/2026-10-24-accredited-investor-verification.md).
 
 ---
 
-## 1. What We're Building
+## 1. What Savy Is
 
-A verification service where **two independent AI agents from different vendors read an investor's documents, adversarially review each other's work, and converge on a recommendation** — backstopped by a deterministic validator that confirms the statutory arithmetic. Output: either an auto-approval with a letter, or a flagged case for human review, with a complete timestamped record of the debate and every decision.
+An LP gets verified as an accredited investor **once**, then shares a reusable 90-day **passport** with any number of funds. That is `plan.md` §5's attack on iCapital's Investor Passport, aimed at the segment iCapital underserves.
 
-**The pitch, in one line:** the product is not document-reading AI, it's *liability protection*. Per `plan.md` §11, a documented "reasonable steps" process preserves the issuer's Reg D exemption even if the investor lied. The debate transcript plus the validator check **is** the product.
+**Customer:** 506(c) issuers — syndicates, SPVs, rolling funds, and real-estate sponsors (`plan.md` §10, pain 4–5). **Not** "small VC funds": most VC funds raise under 506(b), which requires no verification at all, and 506(c) is only ~7% of Reg D (`plan.md` §8). Claiming VC funds invites a correct and deflating objection from anyone who knows private markets.
 
-**Why two agents from different vendors:** the same model run twice shares its blind spots — it fails identically and the "review" is a rubber stamp. Cross-vendor review is genuine independence. This is also what makes Nicrron load-bearing rather than a convenient gateway.
+**The product is liability protection.** Per `plan.md` §11, a documented, proper process **generally** preserves the issuer's Reg D exemption even if the investor lied. Do not harden "generally" into "always." The audit trail is the product; the AI is how we produce it cheaply.
 
-**Demo win condition:** a judge watches two agents disagree about a document, watch them resolve it, watch a doctored document get caught, and then sees the audit trail that makes the whole thing defensible.
+**What makes it defensible:** two independent AI models from different vendors read the investor's documents and adversarially review each other, then a deterministic rules engine confirms the statutory arithmetic. "An AI said yes" is a weak defense of an exemption. "Two independent models agreed, a deterministic check confirmed the thresholds against the statute, and here is the timestamped trace" is a strong one.
 
 ---
 
-## 2. Hard Constraints
+## 2. The Frontend Already Exists — The Contract Is Fixed
 
-| Constraint | Consequence |
+A React/TypeScript app (Vite, React 19, Tailwind v4) is built and working against a mock. **The backend conforms to the frontend, not the other way round.**
+
+| Source of truth | What it defines |
 |---|---|
-| Judging tonight (~6 hrs build) | Core must be small; every integration needs a fallback |
-| All 5 sponsor tools must be integrated (organizer rule) | 3 deep (Nicrron, Roundtable, PRISM), 2 thin-but-real (akta.pro, Solari) |
-| One engineer (Apoorv) owns core + all 5 integrations | Thin integrations are one call each, behind a uniform adapter |
-| Frontend teammate works in parallel | API contract frozen in first 20 minutes, mock served immediately |
-| Second backend engineer's deterministic parser is a *maybe* | Becomes the validator layer if it lands; never on the critical path |
-| Nicrron credits expire 11:59 PM ET today | Redeem first, before any code |
-| No Ninoo Builder (user decision) | Forfeits the NicrronNinoo-specific prize track; Nicrron API still satisfies "used the sponsor" |
+| **`src/lib/types.ts`** | Every entity on the wire. **Authoritative.** Read it before writing any model. |
+| **`src/lib/api/client.ts`** | The `Api` interface and every HTTP route. |
+| **`src/lib/api/mock.ts`** | A complete working reference implementation. `fakeEvaluate()` is the behavior to replicate — with real logic behind it. |
+| **`src/lib/rules.ts`** | Thresholds, and `estimateNetWorth()` — **use its formula verbatim**. |
+| **`README.md`** | The route table. |
 
-**Cost is a non-constraint.** `openai/gpt-6-luna` is $0.10/1M prompt tokens — a 5-round debate per document costs a fraction of a cent. With $260 of credit, model calls are effectively free, so the design optimizes for *quality of judgment*, not call count.
+### Routes (exact)
 
----
+| Method | Route | Body | Returns |
+|---|---|---|---|
+| POST | `/kyc` | `{legalName, scenario?}` | `KycSession` |
+| POST | `/account-links` | `{scenario?}` | `AccountLink` |
+| POST | `/documents` | multipart `file` | `ParsedDocument` |
+| POST | `/licenses/check` | `{type, crd}` | `{found, name}` |
+| POST | `/verifications` | `ApplicationInput` | `Verification` |
+| GET | `/verifications/:id` | | `Verification` |
+| POST | `/verifications/:id/sign-off` | | `Verification` |
+| GET | `/passports/:id` | | `{passport, active}` |
+| POST | `/passports/lookup` | `{email, letterRef}` | `{passportId}` or `null` |
+| GET | `/funds` | | `Fund[]` |
+| GET | `/passports/:id/shares` | | `Share[]` |
+| POST | `/passports/:id/shares` | `{fundId}` | `Share` |
+| DELETE | `/passports/:id/shares/:shareId` | | — |
 
-## 3. Non-Goals (Explicit Cut List)
+### Non-negotiable wire details
 
-Cut for time, not because they're wrong — most are on `plan.md`'s roadmap:
+- **JSON is camelCase** (`legalName`, `investorType`, `priorYear1`, `docType`). Pydantic models must serialize camelCase — use `alias_generator=to_camel` with `populate_by_name=True`, or name the fields camelCase directly.
+- **Errors are `{"error": "message"}`** with a real HTTP status. A FastAPI `HTTPException` returns `{"detail": ...}` by default — **add an exception handler** or the UI shows nothing useful.
+- **`credentials: 'include'`** means CORS **cannot** use `allow_origins=["*"]`. Browsers reject a wildcard with credentials. Set the explicit Vite origin: `allow_origins=["http://localhost:5173"]`, `allow_credentials=True`.
+- **`reviewConfidence = 0.9`.** Documents read below 0.9 confidence, or carrying any flag, escalate to `review`.
+- **Freshness / passport validity: 90 days.**
+- **Sandbox scenarios must be honored:** `startKyc` takes `'clean' | 'ofac' | 'fail'`; `linkAccounts` takes `'high' | 'low'`. A CRD beginning with `9` must return `found: false` — the UI documents this as its license-failure demo path.
+- **The client never sends figures for a document.** It uploads a file, gets an id, and references the id. All extracted values live server-side.
 
-- **Plaid / bank account linking** — production access takes weeks (`plan.md` §14); net worth comes from document upload instead
-- **Credit bureaus, IRS IVES transcripts** — difficulty 4–5, enrollment gated
-- **Persona / Alloy KYC-AML** — another signup, orthogonal to the accreditation story
-- **Auth, user accounts, multi-tenancy, billing**
-- **A real database** — Roundtable is the case-file store; live state is in-process
-- **E-signature / DocuSign, wire instructions**
-- **The 90-day re-verification freshness loop** (mention in pitch, don't build)
-- **PRISM's challenge-track requirements** (20+ runs on fixed inputs, MCP-added rules) — only if time remains after the demo is safe
+### Decision and check vocabulary (exact)
 
----
+`Decision = 'approved' | 'review' | 'needs_info' | 'denied'` — escalation ranks in that order, and the worst check wins.
 
-## 4. Architecture
-
-```
-INTAKE → EXTRACT (agent debate) → ENRICH → ADJUDICATE → VALIDATE → TRIAGE → ISSUE
-   │              │                  │          │           │         │        │
-   │              │                  │          │           │         │        └─ letter      (Nicrron)
-   │              │                  │          │           │         └────────── routing     (deterministic)
-   │              │                  │          │           └──────────────────── 501(a) math (deterministic)
-   │              │                  │          └──────────────────────────────── final fields + recommendation
-   │              │                  └─────────────────────────────────────────── BrokerCheck / company
-   │              │                                                                  (Solari, akta.pro)
-   │              └────────────────────────────────────────────────────────────── 2 agents, 2 vendors, 3 rounds
-   └───────────────────────────────────────────────────────────────────────────── form + uploads
-
-   debate happens in ──► Roundtable thread (deep)
-   every step traced ──► PRISM span tree (deep)
-```
-
-### Domain model
-
-```python
-Case:
-    case_id:        str
-    subject_type:   "individual" | "entity"
-    claimed_path:   "income" | "net_worth" | "license" | "entity_assets" | "min_investment"
-    commitment_usd: int | None
-    documents:      list[Document]
-    debate:         list[DebateTurn]     # (round, actor, model, content, challenges, resolutions)
-    extracted:      dict[str, Field]     # Field = {value, confidence, source_quote, doc_id, disputed}
-    evidence:       dict[str, Any]       # external checks (Solari, akta.pro)
-    recommendation: AgentRecommendation  # adjudicator's verdict + trust assessment + reasoning
-    validation:     list[RuleResult]     # deterministic 501(a) checks
-    conflict:       bool                 # recommendation disagrees with validation
-    decision:       "auto_approved" | "needs_review" | "rejected" | "needs_documents"
-    audit_trail:    list[AuditEvent]
-    letter_md:      str | None
-```
-
-**Core invariant:** `decision` requires the adjudicator's recommendation **and** the validator to agree. Any conflict routes to `needs_review` — neither layer can auto-approve alone.
+`CheckResult = 'pass' | 'fail' | 'warn'`. Every `Check` is `{id, label, result, detail}`. `Evaluation` is `{decision, checks, reasons}`, where `reasons` are plain-language strings shown to the LP only when not approved.
 
 ---
 
-## 5. Integration Map — Exactly Where Each Tool Is Called
+## 3. Architecture
 
-### 5.1 Nicrron API — DEEP (the debate engine)
+```
+POST /documents ──► classify ──► DEBATE (2 vendors, 4 rounds) ──► ParsedDocument
+                                   │                                 {income, balance,
+                                   │                                  confidence, flags[],
+                                   │                                  summary}
+                                   └─ challenger findings land in flags[]
 
-Base URL `https://api.nicrron.ai/v1`, OpenAI-compatible. The multi-model catalog behind one key is what makes cross-vendor adversarial review possible at all.
+POST /verifications ──► EVIDENCE ──► EVALUATE ──► DECIDE ──► ISSUE
+                           │            │            │          │
+                           │            │            │          └─ Passport + letterRef
+                           │            │            └─ worst check wins
+                           │            └─ deterministic Rule 501(a) checks
+                           └─ license (Solari) · entity (akta.pro) · KYC · account links
 
-**The debate protocol** (per document):
+every step ──► PRISM span   ·   debate + verification file ──► Roundtable
+```
+
+Documents are parsed at **upload** time, not at submit time, because the UI shows per-document results in its evidence step. The verification endpoint consumes already-parsed documents by id.
+
+### Where AI decides and where it must not
+
+| Judgment | Owner | Why |
+|---|---|---|
+| What a document says; is it internally consistent; is it trustworthy | **AI debate** | Genuine judgment. Messy documents, cross-document consistency, suspicious arithmetic. |
+| Does $214,500 ≥ $200,000; is each of two years above threshold; net worth arithmetic | **Deterministic** | No judgment exists here. A comparison operator is not a weaker tool than an LLM — it is a stronger one. |
+| Final `decision` | **Deterministic** | Escalation over checks. The model's recommendation is an input, never the output. |
+
+**Core invariant:** a `decision` of `approved` requires the deterministic checks to pass **and** no unresolved agent/validator disagreement. Neither layer can approve alone.
+
+---
+
+## 4. Integration Map — Exactly Where Each Sponsor Is Called
+
+All five are required by the organizers. Two are deep; three make real calls at one site each, with a cached fallback so the demo survives a dead network.
+
+### 4.1 Nicrron API — DEEP (document understanding)
+
+Base URL `https://api.nicrron.ai/v1`, OpenAI-compatible. The multi-vendor catalog behind one key is what makes cross-vendor adversarial review possible at all.
+
+Called from `POST /documents`. One debate per upload, four rounds:
 
 | Round | Actor | Model | Produces |
 |---|---|---|---|
-| 1 | **Extractor** | `openai/gpt-6-luna` | fields + confidence + `source_quote` each |
-| 2 | **Challenger** | `anthropic/claude-sonnet-5` *(different vendor — required)* | zero or more specific challenges |
-| 3 | **Extractor** | `openai/gpt-6-luna` | per challenge: `CONCEDE` (revised value) or `DEFEND` (cite quote) |
-| 4 | **Adjudicator** | `openai/gpt-6-astra` | final field set, trust assessment, recommended decision + reasoning |
+| 0 | Classifier | `openai/gpt-6-luna` | `docType` |
+| 1 | Extractor | `openai/gpt-6-luna` | fields + confidence + source quotes |
+| 2 | **Challenger** | `anthropic/claude-sonnet-5` — **must not be OpenAI** | specific challenges |
+| 3 | Extractor | `openai/gpt-6-luna` | per challenge: CONCEDE or DEFEND |
+| 4 | Adjudicator | `openai/gpt-6-astra` | final fields, trust assessment, `flags[]` |
 
-Round 2 is prompted with **named failure modes**, not generic doubt — a vague "review this" reliably returns "looks fine," which is worse than no review:
+Round 2 is prompted with **named failure modes**, never generic doubt — a vague "review this" reliably returns "looks fine," which is worse than no review:
 
-- misread or transposed digits
-- wrong field pulled (AGI vs. total income vs. wages)
-- stale or wrong tax year
-- cross-document inconsistency (W-2 employer ≠ 1040; balance ≠ statement period)
-- arithmetic that doesn't add up on the face of the document
-- signs of alteration (font/alignment mismatch, impossible totals)
-- unsupported inference (a field the document never states)
+`misread_or_transposed_digits`, `wrong_field` (AGI vs total income vs wages), `stale_or_wrong_tax_year`, `cross_document_inconsistency`, `face_arithmetic_error`, `impossible_dates`, `unsupported_inference`. Plus `signs_of_alteration` **only if vision works** — see §6.
 
-Each challenge must name the field and the reason. Astra appears exactly once, where capability actually pays; everything else runs on luna at $0.10/1M.
+**The output maps directly onto `ParsedDocument`:** unresolved challenges become `flags[]`, the adjudicator's confidence becomes `confidence`, and anything below 0.9 or any flag escalates the verification to `review`. The contract already had a home for adversarial findings.
 
-**Also on Nicrron:**
-- **Document classification** · `openai/gpt-6-luna` → `w2 | 1040 | bank_statement | brokerage_statement | cpa_letter | trust_deed | unknown`, so the investor never declares what they uploaded
-- **Letter prose** · `openai/gpt-6-astra` → receives the *already-settled* decision and writes prose around fixed figures
+Also used for `summary` prose. Cost is a non-constraint: luna is $0.10/1M prompt tokens, so a four-round debate is a fraction of a cent.
 
-**Open risk:** modality support for `gpt-6-luna` is unconfirmed. If it's text-only, either the extractor moves to a vision-capable model or we accept pasted document text. **10-minute check, on the critical path.**
+### 4.2 PRISM — DEEP (the audit trail)
 
-### 5.2 Roundtable — DEEP (the debate venue and system of record)
-
-The debate runs **in a Roundtable thread** — this is agent-to-agent communication, which is exactly what the platform exists for. Each round is a real message from a named agent; challenges and concessions are replies.
-
-Two things come free and both are genuine compliance artifacts:
-- **The thread** is the deliberation record — who challenged what, who conceded, what stayed disputed
-- **Case-file version history** — one version per stage: v1 intake → v2 debate → v3 enriched → v4 adjudicated → v5 validated → v6 issued
-
-**Risk control:** this is the SDK we've never opened, so the debate loop is built as **plain function calls first**, with Roundtable as the venue layered on top. If the SDK fights us, the debate still runs and is logged locally — we lose the workspace view, not the architecture.
-
-```python
-class DebateVenue(Protocol):
-    def open_thread(self, case_id: str) -> str: ...
-    def post_turn(self, thread: str, actor: str, model: str, content: dict) -> None: ...
-    def save_version(self, case: Case, stage: str) -> str: ...
-```
-`LocalJsonVenue` ships first and always works; `RoundtableVenue` swaps in.
-
-### 5.3 PRISM — DEEP (the audit trail)
-
-`pip install prismtrace-sdk` (or OTel exporter), key in `PRISMTRACE_API_KEY`. Wire this **first** — retrofitting tracing is miserable.
-
-Tracing a *debate* is far richer audit material than tracing a single extraction:
+`prismtrace-sdk` or an OTel exporter, key in `PRISMTRACE_API_KEY`. Wire it **before** there is anything to retrofit.
 
 ```
-case:{case_id}                                  root
-├── stage:extract
-│   ├── debate.round1.extract    model, field_count, min_confidence
-│   ├── debate.round2.challenge  model, challenge_count, fields_challenged
-│   ├── debate.round3.respond    model, conceded, defended
-│   └── debate.round4.adjudicate model, recommendation, disputes_open
-├── stage:enrich
-│   ├── solari.brokercheck       target, license_found, screenshot_url, cache_hit
-│   └── akta.company_enrich      company, headcount, adverse_news, cache_hit
-├── stage:validate
-│   └── rule:{rule_id}           outcome, inputs_used, citation   ← one span per rule
-├── stage:triage                 decision, conflict, reason
-└── stage:issue                  letter_len
+verification:{id}
+├── document:{id}
+│   ├── debate.round1.extract      model, field_count, min_confidence
+│   ├── debate.round2.challenge    model, challenge_count, fields_challenged
+│   ├── debate.round3.respond      model, conceded, defended
+│   └── debate.round4.adjudicate   model, confidence, flags
+├── evidence
+│   ├── solari.brokercheck         crd, found, screenshot_url, cache_hit
+│   ├── akta.company_enrich        company, headcount, adverse_news, cache_hit
+│   ├── kyc                        status, ofacHit
+│   └── account_links              account_count, total_balance
+├── check:{check_id}               result, detail, inputs_used, citation
+├── decide                         decision, escalated_by, conflict
+└── issue                          letterRef, expiresAt
 ```
 
-This span tree *is* the §11 audit file. On stage: open a verification, click into the trace, show that two independent models reviewed it, what they disagreed on, and that a deterministic check confirmed the arithmetic against the statute.
+This span tree **is** the §11 audit file. Tracing a *debate* is far richer than tracing one extraction: you can show which model challenged what, and what the deterministic layer then confirmed.
 
-**Stretch (bonus track only, if the demo is already safe):** a PRISM guardrail for *"no case reaches `ISSUE` with `conflict == true`"*, then show v1 violating it and v2 not.
+**Guardrail (the PRISM challenge track):** the invariant *no verification may be issued a passport while a check has `result: 'fail'` or an unresolved agent/validator conflict exists* is enforced in code **and** mirrored as a PRISM rule via MCP. Demonstrate v1 violating it and v2 not, on identical inputs. This is the same logic the decision engine already needs, so it costs almost nothing extra.
 
-### 5.4 akta.pro — THIN (one call site, entity cases only)
+**Provisioning order matters:** the `DEALFLOW` credit is redeemed only *after* a first trace lands. One workspace per team — the owner invites everyone else; a second independent signup splits the team.
 
-Fires at `ENRICH` **only when `subject_type == "entity"`.** Endpoints (confirmed from `docs.akta.pro/llms.txt`):
-1. **Company Search** — resolve entity by name or domain → UUID
-2. **Company Data** — firmographics, headcount, funding, financials
-3. **News Signals** — AI-summarized articles with event type + sentiment → adverse-news detection
+### 4.3 Roundtable — DEEP-ish (debate venue and system of record)
 
-Produces **evidence, never verdicts**:
-```python
-evidence["entity_corroboration"] = {
-    "resolved": bool, "headcount": int|None, "funding_total": int|None,
-    "operating_business_signal": bool,   # resolved + has headcount/traffic/jobs
-    "adverse_news": [ {title, sentiment, date} ],
-}
-```
-Fed to the adjudicator as context and to a `SHELL_COMPANY_RISK` check that can route to `needs_review` — it can **never** produce an accreditation pass. The API has no individual-level or AUM data (verified), so overclaiming here would be wrong. UI labels the panel *"Entity corroboration — not a verification source."*
+The debate runs **in a Roundtable thread** — genuine agent-to-agent communication, which is what the platform is for. Each round is a message from a named agent; challenges and concessions are replies. The `Verification` is also written as a versioned file, one version per stage, which is a real compliance artifact (an immutable deliberation record).
 
-### 5.5 Solari — THIN (one call site, license path only)
+**Risk control:** the debate is built as plain function calls first, with Roundtable layered on as the venue. Behind `DebateVenue`, `LocalJsonVenue` ships first and always works. If the SDK fights us, the debate still runs and is logged — we lose the workspace view, not the architecture.
 
-Fires at `ENRICH` **only when `claimed_path == "license"`.** A scripted cloud-browser task against FINRA BrokerCheck, which has **no usable public API** (`plan.md` §14) — so a computer-use agent is genuinely the right tool, not a gimmick.
+### 4.4 akta.pro — THIN (entity corroboration only)
 
-```python
-evidence["license_check"] = {
-    "licenses": ["Series 65"], "active": True,
-    "source_url": "https://brokercheck.finra.org/...",
-    "screenshot_url": "...",          # ← the actual deliverable
-    "checked_at": "2026-10-24T19:41:02Z",
-    "cache_hit": False,
-}
-```
+Fires during `POST /verifications` **only when `investorType == 'entity'`**. Endpoints confirmed from `docs.akta.pro/llms.txt`: Company Search → Company Data → News Signals.
 
-**The screenshot is the point.** A timestamped capture of the regulator's own page is documented "reasonable steps." It goes in the audit file and on screen during the demo.
+**Verified scope limit:** akta.pro holds **company/organization data only** — firmographics, headcount, funding, traffic, jobs, news. It has **no individual-level data**: no identity, KYC, net worth, income, or accreditation status, and no AUM. It therefore **cannot** establish accredited status for anyone. It produces one `Check` that can `warn` → escalate to `review`, never a `pass` on accreditation. Label it honestly in `detail`: corroboration, not verification. Judges who know this space will respect the accuracy more than an overclaim.
 
-Highest-risk integration on the board: computer-use is slow, flaky, and WiFi-dependent (hence Pangea in `resources.md`). Controls: 15-minute feasibility spike early; hard 45s timeout; pre-cached results for both demo identities; live attempt falls back to cache silently.
+Used for: does this entity resolve to a real operating business, or does it look like a shell? Any adverse news?
+
+### 4.5 Solari — THIN (FINRA BrokerCheck)
+
+Fires from `POST /licenses/check`, and again as a `Check` during evaluation on the `license` pathway. A scripted cloud browser against FINRA BrokerCheck, which has **no usable public API** (`plan.md` §14) — so a computer-use agent is genuinely the right tool here, not a gimmick.
+
+**The screenshot is the deliverable.** A timestamped capture of the regulator's own page is documented "reasonable steps" — it belongs in the audit file and on screen during the demo.
+
+Highest-risk integration: computer-use is slow, flaky, and network-dependent. Controls: a 15-minute feasibility spike early; a hard timeout; pre-cached results for the demo CRDs; live attempts fall back to cache silently. Preserve the UI's contract that a CRD starting with `9` returns `found: false`.
+
+### 4.6 Persona and Plaid are mocked, deliberately
+
+`KycSession` and `AccountLink` are typed "Persona in production, mocked for now" and "Plaid in production, mocked for now." The backend implements both as deterministic stubs that honor the sandbox `scenario` parameter. Real Plaid production access takes weeks (`plan.md` §14) and real KYC is orthogonal to the accreditation story — both are out of scope tonight and that is the right call, not a gap.
 
 ---
 
-## 6. The Validator (deterministic backstop)
+## 5. The Evaluation Engine
 
-Not the decider — the backstop. Roughly 40 lines of threshold comparisons over the adjudicator's final field set.
+Replicates `fakeEvaluate()` in `src/lib/api/mock.ts` with real logic behind it. Every check carries a statutory citation in `detail` where one exists.
 
-**Why it stays, given the agents decide:**
-- "An AI said yes" is a weak defense of a Reg D exemption. "Two independent models agreed and a deterministic check confirmed the arithmetic against the statute" is a strong one. It's the cheapest credibility available.
-- `INCOME` is specifically where confident models slip: *≥$200K in **each** of the last two years **plus** a reasonable expectation for the current year* is multi-condition temporal logic. Free to verify.
-- It **stabilizes the demo.** Two agents debating produce a different transcript every run; the validator keeps the *outcome* deterministic even when the conversation varies.
+**Always run:** `identity` (KYC), `sanctions` (OFAC/PEP → `warn` escalates to `review`), one `doc_{id}` check per document (confidence < 0.9 or any flag → `warn` → `review`), `attest` (accuracy + consent).
 
-```python
-RuleResult:
-    rule_id:     str
-    citation:    str                      # e.g. "17 CFR 230.501(a)(6)"
-    outcome:     "PASS" | "FAIL" | "INSUFFICIENT_DATA"
-    inputs_used: dict[str, Any]
-    reason:      str
-```
+**Per pathway — one of:**
 
-| `rule_id` | Citation | Test |
+| Pathway | Citation | Test |
 |---|---|---|
-| `INCOME` | 501(a)(6) | ≥$200K individual (≥$300K joint) in **each** of the last 2 years + reasonable expectation for current year |
-| `NET_WORTH` | 501(a)(5) | Net worth >$1M **excluding primary residence**; flag mortgage debt added in last 60 days |
-| `LICENSE` | 501(a)(10) | Series 7, 65, or 82 in good standing (from Solari evidence) |
-| `ENTITY_ASSETS` | 501(a)(3)/(9) | Entity with >$5M total assets or >$5M investments |
-| `MIN_INVESTMENT` | Mar 2025 SEC no-action letter | Commitment ≥$200K individual / ≥$1M entity + self-cert funds not third-party financed |
+| `income` | 501(a)(6) | ≥$200K individual / ≥$300K joint in **each** of the last two years, plus an expectation for the current year. A two-year average does **not** qualify. |
+| `net_worth` | 501(a)(5) | Net worth >$1M excluding the primary residence. **Use `estimateNetWorth()` from `src/lib/rules.ts` verbatim:** the home is excluded entirely, and its mortgage counts as a liability only to the extent it is underwater *or* was increased in the last 60 days — `liabilities + max(underwater, recentIncrease)`. |
+| `license` | 501(a)(10) | Active Series 7, 65, or 82 per BrokerCheck (Solari). |
+| `min_investment` | Mar 2025 SEC no-action letter | Commitment ≥$200K individual / ≥$1M entity, plus the written self-certification that funds are not third-party financed. |
+| `entity_assets` | 501(a)(3)/(9) | Entity holds >$5M. If `formedForPurpose` is true → `warn` → `review`, because owners need look-through. |
 
-Plus `SHELL_COMPANY_RISK` (entity cases, from akta.pro evidence) — routes to review only, never passes or fails accreditation.
+**Plus:** `income_{year}` document-coverage checks for each of the two prior years; `assets_verified` and `liabilities` for net worth; `trust` look-through when `entityKind == 'trust'`; `entity_corroboration` for entities (akta.pro).
 
-**If the second engineer's deterministic parser lands and works, it slots in here** as an independent field-extraction cross-check: agreement with the agents' final fields raises confidence, disagreement sets `conflict = true`. Same interface, zero changes elsewhere, never on the critical path.
+### The improvement over the mock: self-reported vs. extracted
 
----
+The mock evaluates the LP's **self-reported** `IncomeEvidence` and separately checks that *some* tax document exists for each year. The real backend **cross-checks the two**: the LP says `priorYear1 = 240000`, the debate read `185000` from the 2024 W-2. That disagreement becomes a `warn` check → `review`.
 
-## 7. Triage Logic
-
-```
-if recommendation == APPROVE and validator has ≥1 PASS and not conflict
-   and all inputs_used confidence ≥ 0.85
-   and no open disputes and no adverse signal
-   and no value within 5% of its threshold:
-        → AUTO_APPROVED        (issue letter)
-
-elif conflict:                                     # the money shot
-        → NEEDS_REVIEW         ("agents recommended approve; $199,400 fails 501(a)(6)")
-
-elif open disputes | low confidence | near-threshold | adverse news:
-        → NEEDS_REVIEW         (with the specific reason)
-
-elif all rules have sufficient data and all FAIL:
-        → REJECTED
-
-else:
-        → NEEDS_DOCUMENTS      (name the missing fields)
-```
-
-Near-threshold deliberately routes to a human: an investor at $201K income is exactly where a wrong auto-approval costs the issuer its exemption. Produces `plan.md` §4's 70/20/10 split.
+This is where the AI layer earns its place, and it is native to the contract rather than bolted on. It is also the demo's centerpiece (§7, case 5).
 
 ---
 
-## 8. API Contract — freeze in the first 20 minutes
+## 6. Vision Is Probably Unavailable — Assume Text
 
-Frontend builds against a mock of this immediately and is never blocked.
+Every model in the live Nicrron catalog reports modality `chat`; none advertises image input. Until proven otherwise:
 
-```
-POST   /cases                   {subject_type, claimed_path, commitment_usd}   → {case_id}
-POST   /cases/{id}/documents    multipart file                                 → {doc_id, doc_type}
-POST   /cases/{id}/run                                                         → SSE stream
-GET    /cases/{id}                                                             → full Case (incl. debate)
-GET    /cases                                                                  → [case summaries]
-GET    /cases/{id}/letter                                                      → {letter_md, trace_url}
-```
+- Documents are processed as **text** (extracted from the uploaded file, or pasted).
+- `signs_of_alteration` is **removed** from the challenger's failure modes. Left in on a text-only path, it invites the model to invent visual evidence it cannot have.
+- Forgery fixtures must be caught **arithmetically** — totals that do not reconcile, a generation date preceding the period it reports — not by font or alignment.
 
-`POST /run` streams `{stage, round, actor, status, detail}` so the UI can render **the debate turn by turn as it happens** — two agents arguing in real time is the demo's visual payload. If SSE costs more than 20 minutes, degrade to polling.
+A 10-minute probe is the first API call of the night. If vision does work, set `VISION_ENABLED=1` and `signs_of_alteration` returns.
 
 ---
 
-## 9. Demo Script
+## 7. Demo Script
 
-Five fixture cases, each forcing a different tool to do real work:
+Five cases, each forcing a different sponsor to do real work:
 
-| # | Case | Exercises | Outcome |
+| # | Case | Exercises | Expected |
 |---|---|---|---|
-| 1 | Clean individual, income path — 2× W-2 + 1040 | Nicrron debate, Roundtable, PRISM | `AUTO_APPROVED` + letter |
-| 2 | Individual claiming Series 65 | **Solari** → BrokerCheck screenshot | `AUTO_APPROVED` on license test |
-| 3 | Entity LP (LLC) subscribing | **akta.pro** → firmographics + adverse news | `NEEDS_REVIEW`, shell risk flagged |
-| 4 | **Doctored bank statement** | Challenger catches alteration in round 2 | `NEEDS_REVIEW`, caught by the debate |
-| 5 | **$199,400 income** | Agents recommend approve; validator fails it | `NEEDS_REVIEW` — **conflict surfaced** |
+| 1 | Clean individual, income — 2× W-2 + 1040 | Nicrron debate, PRISM, Roundtable | `approved` + passport issued |
+| 2 | Series 65 holder (real public CRD) | **Solari** → BrokerCheck screenshot | `approved` on the license test |
+| 3 | Entity LLC, `entity_assets` | **akta.pro** → shell/adverse-news signal | `review` |
+| 4 | Doctored bank statement (arithmetic forgery) | Challenger catches it in round 2 → `flags[]` | `review` |
+| 5 | **Self-reported income contradicts the documents** | The whole architecture at once | `review` — **conflict surfaced** |
+| — | Then: share the passport with a fund, revoke it | Passport + shares flow | the reuse story |
 
-Cases 4 and 5 are the memorable beats and both cost nothing but a fixture. Case 5 is the strongest: it shows the two layers checking each other. Close on the PRISM trace: *"this is what preserves your exemption."*
+**Case 5 is the showpiece.** LP reports $240K for both prior years; the 2024 W-2 reads $185K. Agents may well approve by averaging or by reading the wrong line — the deterministic check fails on "each of the last two years," and the cross-check flags the contradiction. $185K is 7.5% below threshold, comfortably outside any near-threshold band, so the conflict fires cleanly instead of being masked by a boring reason. It survives a judge saying "re-run it."
+
+**Case 2 ethics:** the license pathway needs no financial documents, so case 2 carries only that real person's real public license data and asserts nothing financial about them. Never bind a real named individual's regulatory record to synthetic financials. Best option: a consenting teammate who holds a CRD.
+
+Close on the PRISM trace for case 1: *this is the documented process that supports the issuer's reasonable-belief position.*
 
 ---
 
-## 10. Risk Register
+## 8. Risk Register
 
-Four of five SDKs are unverified. Each gets a timebox and a predefined fallback; **when the timebox expires, take the fallback and move on** — this discipline is what saves the demo.
+Four of five SDKs have never been run by this team. Each gets a timebox and a predefined fallback; **when the box expires, take the fallback and move on.**
 
 | Risk | Timebox | Fallback |
 |---|---|---|
-| `gpt-6-luna` can't read images | 10 min, early | Vision-capable model for extraction, or accept pasted text |
-| Solari computer-use too slow/flaky | 15 min spike, early | Pre-cached result + screenshot; optionally a recorded clip |
-| Roundtable SDK unfamiliar | 30 min | `LocalJsonVenue` (already shipping); debate still runs |
-| Debate too slow for a live demo | — | Cache completed debates for fixtures; stream from cache |
-| Debate outcome varies run to run | — | Validator stabilizes the *outcome*; cache fixture runs |
-| akta.pro signup friction (Stripe + `DEALFLOW50`) | do first | Cached responses for the two demo companies |
-| PRISM SDK fights us | 25 min | Raw OTel exporter, or local structured audit log rendered in-app |
-| Venue WiFi collapses | — | **Every** external call cached; full demo runs offline. Pangea backup |
-| Credits expire 11:59 PM ET | — | Redeem all codes before writing code |
+| No model reads images | 10 min, first | Text-only path; arithmetic forgery; drop `signs_of_alteration` |
+| Solari too slow or unreachable | 15 min spike, early | Pre-cached result + screenshot; optionally a recorded clip |
+| Roundtable SDK unfamiliar | 30 min | `LocalJsonVenue`; the debate still runs |
+| Debate too slow for a live demo | — | Pre-seed the demo cases; one live run as the honesty beat |
+| akta.pro signup friction (Stripe + `DEALFLOW50`) | do first | Cached responses for the demo entities |
+| PRISM SDK fights us | 25 min | Raw OTel exporter, or a local structured audit log |
+| Venue WiFi collapses | — | **Every** external call cached; the full demo runs offline. Pangea backup |
+| Nicrron credits expire 11:59 PM ET today | — | Redeem before writing code |
+| CORS/credentials or camelCase mismatch | — | Verify against the real UI early — these silently break everything |
 
 ---
 
-## 11. Build Sequence
+## 9. Open Questions
 
-| Time | Work |
-|---|---|
-| 0:00–0:30 | Redeem all 5 codes (split across team). Freeze API contract, push skeleton, serve mocks |
-| 0:30–1:00 | FastAPI skeleton + `Case` state machine + **PRISM tracing wired first** |
-| 1:00–1:10 | **Luna modality check** — does it accept images? Decide extractor model now |
-| 1:10–1:25 | **Solari feasibility spike** — can a cloud browser load BrokerCheck at all? Decide live-vs-recorded while there's time to adapt |
-| 1:25–3:00 | **The debate loop** — 4 rounds, 2 vendors, named failure modes, local function calls first |
-| 3:00–3:30 | Validator + triage + conflict detection |
-| 3:30–4:00 | Roundtable as debate venue + case-file versions |
-| 4:00–4:30 | Solari full wiring + cache |
-| 4:30–4:50 | akta.pro entity path |
-| 4:50–5:20 | Letter generation + audit-file view |
-| 5:20–6:00 | Fixtures (esp. cases 4 and 5), cache everything, rehearse, WiFi-down drill |
-
-Frontend runs in parallel against the frozen contract the entire time.
-
----
-
-## 12. Open Questions
-
-1. **Frontend stack** — teammate's choice; contract is plain JSON either way
-2. **Challenger vendor** — `anthropic/claude-sonnet-5` (stronger) vs `deepseek/deepseek-v4-flash` (cheaper); only requirement is *not OpenAI*, so the review is genuinely independent
-3. **Do the organizers require meeting each sponsor's *own* qualification rules?** If yes, skipping the Ninoo Builder is a problem — get a ruling in hour one
-4. **Fixture documents** — realistic synthetic W-2/1040/bank statements, clearly watermarked synthetic, never real investor data
-5. **Demo identity for BrokerCheck** — must be a real public CRD record for the lookup to return anything
+1. **Do the organizers require meeting each sponsor's *own* qualification rules?** `ninoo.md` says "Three rules. Miss any one of them and your entry is disqualified," one of which is building in the Ninoo Builder. We are using the Nicrron API only (user's decision). If their all-five rule inherits each sponsor's conditions, that is a disqualification risk, not a forfeited track. **Get a ruling in the first ten minutes.**
+2. **Which real CRD** backs demo case 2? Ideally a consenting teammate's.
+3. **Does the second backend engineer's deterministic document parser land?** If it does, it slots in behind the same extraction interface as an independent second opinion: agreement raises confidence, disagreement forces `review`. Never on the critical path.
 
 ---
 
