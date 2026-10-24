@@ -61,7 +61,7 @@ export default function PassportPage() {
             <Button
               size="lg"
               variant="secondary"
-              onClick={() => toast(isMock ? 'Letter PDF comes from the backend' : 'Preparing your letter', { description: isMock ? 'Connect VITE_API_BASE_URL to download the signed letter.' : undefined })}
+              onClick={() => toast(isMock ? 'Letter PDF comes from the backend' : 'Preparing your letter', { description: isMock ? 'Connect VITE_API_BASE_URL to download the letter.' : undefined })}
             >
               <FileDown className="size-4" /> Verification letter
             </Button>

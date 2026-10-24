@@ -25,7 +25,7 @@ export interface Api {
   checkLicense(type: LicenseType, crd: string): Promise<{ found: boolean; name: string | null }>
   submitVerification(input: ApplicationInput): Promise<Verification>
   getVerification(id: string): Promise<Verification>
-  /** Sandbox only: stands in for the attorney review queue. */
+  /** Sandbox only: completes a case in the review queue (the backend does this itself). */
   signOff(id: string): Promise<Verification>
   getPassport(id: string): Promise<{ passport: Passport; active: boolean }>
   /** Returning-LP lookup by email + letter reference. Resolves null when nothing matches. */

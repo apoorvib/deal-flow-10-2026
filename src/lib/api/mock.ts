@@ -98,13 +98,13 @@ function fakeEvaluate(input: ApplicationInput): { decision: Decision; checks: Ch
   if (!kyc || kyc.status !== 'verified') add('identity', 'Identity verified', 'fail', 'ID check incomplete.', 'needs_info', 'Complete the ID check.')
   else {
     add('identity', 'Identity verified', 'pass', `Government ID matched to ${kyc.nameOnId}.`)
-    if (kyc.ofacHit) add('sanctions', 'Sanctions and PEP screen', 'warn', 'Possible OFAC list match.', 'review', 'Your sanctions screen needs a manual review.')
+    if (kyc.ofacHit) add('sanctions', 'Sanctions and PEP screen', 'warn', 'Possible OFAC list match.', 'review', 'We\u2019re confirming your sanctions screen.')
     else add('sanctions', 'Sanctions and PEP screen', 'pass', 'No OFAC or PEP matches.')
   }
 
   const docs = input.documentIds.map((d) => db.docs[d]).filter(Boolean)
   for (const d of docs) {
-    if (d.confidence < 0.8 || d.flags.length) add(`doc_${d.id}`, d.fileName, 'warn', d.flags[0] ?? 'Low extraction confidence.', 'review', `A reviewer will check ${d.fileName}.`)
+    if (d.confidence < THRESHOLDS.reviewConfidence || d.flags.length) add(`doc_${d.id}`, d.fileName, 'warn', d.flags[0] ?? 'Low extraction confidence.', 'review', `We\u2019re double-checking ${d.fileName}.`)
     else add(`doc_${d.id}`, d.fileName, 'pass', d.summary)
   }
 
@@ -134,7 +134,7 @@ function fakeEvaluate(input: ApplicationInput): { decision: Decision; checks: Ch
       else {
         add('pathway', 'Net worth test', 'pass', `${usd(r.assets)} assets − ${usd(r.liabilities)} liabilities = ${usd(r.netWorth)}.`)
         if (linked + stmt - r.liabilities >= THRESHOLDS.netWorth) add('assets_verified', 'Assets independently confirmed', 'pass', `${usd(linked + stmt)} confirmed via linked accounts and statements.`)
-        else add('assets_verified', 'Assets independently confirmed', 'warn', `Only ${usd(linked + stmt)} confirmed; the rest is self-reported.`, 'review', 'Part of your net worth is self-reported, so a reviewer will confirm it.')
+        else add('assets_verified', 'Assets independently confirmed', 'warn', `Only ${usd(linked + stmt)} confirmed; the rest is self-reported.`, 'review', 'We\u2019re confirming the self-reported part of your net worth.')
         add('liabilities', 'Liabilities', 'warn', 'Self-reported until credit data is connected.')
       }
       break
@@ -155,7 +155,7 @@ function fakeEvaluate(input: ApplicationInput): { decision: Decision; checks: Ch
       else add('pathway', 'Entity assets test', 'pass', `${usd(input.entityAssets!.totalAssets)} in total assets.`)
       break
   }
-  if (t === 'entity' && input.profile.entityKind === 'trust') add('trust', 'Trust look-through', 'warn', 'Grantor and trustee confirmed at sign-off.', 'review', 'Trusts are always confirmed by a reviewer.')
+  if (t === 'entity' && input.profile.entityKind === 'trust') add('trust', 'Trust look-through', 'warn', 'Grantor and trustees are being confirmed.', 'review', 'We\u2019re confirming the trust\u2019s grantor and trustees.')
   add('attest', 'Signed attestations', input.attestations.accurate && input.attestations.consentToVerify ? 'pass' : 'fail', 'Accuracy statement and consent to verify.')
   return { decision, checks, reasons: [...new Set(reasons)] }
 }
@@ -182,7 +182,7 @@ const must = <T>(v: T | undefined, what: string): T => {
   return v
 }
 
-export const mockApi: Api = {
+const rawApi: Api = {
   async startKyc(legalName: string, scenario: KycScenario = 'clean') {
     await wait(2400)
     const s: KycSession = { id: id('kyc'), status: scenario === 'fail' ? 'failed' : 'verified', nameOnId: legalName, ofacHit: scenario === 'ofac', pep: false, createdAt: new Date().toISOString() }
@@ -281,3 +281,9 @@ export const mockApi: Api = {
     save()
   },
 }
+
+// A real API returns fresh JSON on every call. Clone results so the UI never holds a reference into the
+// mock's store; otherwise an in-place update (e.g. sign-off) looks unchanged to React and won't re-render.
+export const mockApi = Object.fromEntries(
+  Object.entries(rawApi).map(([name, fn]) => [name, async (...args: unknown[]) => structuredClone(await (fn as (...a: unknown[]) => Promise<unknown>)(...args))]),
+) as unknown as Api

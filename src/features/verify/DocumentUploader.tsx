@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { api } from '../../lib/api/client'
 import { cn } from '../../lib/cn'
+import { THRESHOLDS } from '../../lib/rules'
 import { shortDate, usd } from '../../lib/format'
 import type { DocType, ParsedDocument } from '../../lib/types'
 import { useDraft } from './draft'
@@ -121,7 +122,7 @@ export function DocumentUploader({ title, hint }: { title: string; hint: string 
 function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => void }) {
   const figure = doc.income != null ? { k: doc.taxYear ? `${doc.taxYear} income` : 'Income', v: usd(doc.income) } : doc.balance != null ? { k: 'Balance', v: usd(doc.balance) } : null
   const pct = Math.round(doc.confidence * 100)
-  const weak = doc.confidence < 0.8 || doc.flags.length > 0
+  const weak = doc.confidence < THRESHOLDS.reviewConfidence || doc.flags.length > 0
   return (
     <div className={cn('rounded-xl border bg-raised px-4 py-3.5', weak ? 'border-warn/40' : 'border-line')}>
       <div className="flex items-start gap-3">
@@ -147,7 +148,7 @@ function ParsedRow({ doc, onRemove }: { doc: ParsedDocument; onRemove: () => voi
           </dl>
           {doc.flags.length > 0 && (
             <p className="mt-2.5 flex items-start gap-1.5 text-[14px] text-warn">
-              <AlertTriangle className="mt-px size-3.5 shrink-0" /> {doc.flags.join(' · ')}. A reviewer will look at this.
+              <AlertTriangle className="mt-px size-3.5 shrink-0" /> {doc.flags.join(' · ')}. We’ll double-check this.
             </p>
           )}
         </div>

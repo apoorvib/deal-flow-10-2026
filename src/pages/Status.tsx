@@ -1,4 +1,4 @@
-import { ArrowRight, Check, FlaskConical } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -19,7 +19,6 @@ export default function Status() {
   const [v, setV] = useState<Verification | null>(null)
   const [passport, setPassport] = useState<Passport | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [signing, setSigning] = useState(false)
 
   useEffect(() => {
     api.getVerification(id).then(setV, (e) => setError(e.message))
@@ -29,20 +28,27 @@ export default function Status() {
     if (v?.passportId) api.getPassport(v.passportId).then((r) => setPassport(r.passport))
   }, [v?.passportId])
 
+  // While under review, pick up the result as soon as it lands so the page flips to "verified" by itself.
+  const decision = v?.evaluation.decision
+  useEffect(() => {
+    if (decision !== 'review') return
+    const finish = (nv: Verification) => {
+      if (nv.evaluation.decision === 'review') return
+      if (nv.passportId) setSession({ passportId: nv.passportId })
+      setV(nv)
+      if (nv.evaluation.decision === 'approved') toast.success('You\u2019re verified', { description: 'Your passport is ready.' })
+    }
+    // Sandbox has no review queue, so complete the case after a short pause.
+    if (isMock) {
+      const t = setTimeout(() => api.signOff(id).then(finish), 6000)
+      return () => clearTimeout(t)
+    }
+    const poll = setInterval(() => api.getVerification(id).then(finish, () => {}), 10_000)
+    return () => clearInterval(poll)
+  }, [decision, id])
+
   if (error) return <Missing message={error} />
   if (!v) return <PageSkeleton />
-
-  const signOff = async () => {
-    setSigning(true)
-    try {
-      const nv = await api.signOff(v.id)
-      setSession({ passportId: nv.passportId })
-      setV(nv)
-      toast.success('Letter signed', { description: 'Your passport has been issued.' })
-    } finally {
-      setSigning(false)
-    }
-  }
 
   const d = v.evaluation.decision
 
@@ -50,7 +56,7 @@ export default function Status() {
     <div className="mx-auto max-w-3xl px-5 pt-12 pb-10 sm:px-8 sm:pt-16">
       <AnimatePresence mode="wait">
         <motion.div key={d} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
-          {d === 'approved' ? <Approved passport={passport} /> : d === 'review' ? <InReview v={v} onSignOff={signOff} signing={signing} /> : <NotYet v={v} />}
+          {d === 'approved' ? <Approved passport={passport} /> : d === 'review' ? <InReview v={v} /> : <NotYet v={v} />}
         </motion.div>
       </AnimatePresence>
 
@@ -100,20 +106,20 @@ function Approved({ passport }: { passport: Passport | null }) {
   )
 }
 
-function InReview({ v, onSignOff, signing }: { v: Verification; onSignOff: () => void; signing: boolean }) {
+function InReview({ v }: { v: Verification }) {
   const steps = [
-    { label: 'Application submitted', at: dateTime(v.createdAt), state: 'done' },
-    { label: 'Automated checks complete', at: dateTime(v.createdAt), state: 'done' },
-    { label: 'Attorney review', at: 'In progress', state: 'current' },
-    { label: 'Letter signed and passport issued', at: 'Next', state: 'todo' },
+    { label: 'Submitted', at: dateTime(v.createdAt), state: 'done' },
+    { label: 'Documents analyzed', at: dateTime(v.createdAt), state: 'done' },
+    { label: 'Final checks', at: 'In progress', state: 'current' },
+    { label: 'Passport issued', at: 'Next', state: 'todo' },
   ] as const
   return (
     <div>
       <Badge tone="warn" dot>
-        In review
+        Under review
       </Badge>
-      <h1 className="display mt-5 text-[clamp(32px,4.6vw,46px)] leading-[1.04] text-ink">With an attorney for review.</h1>
-      <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-2">Most of your application passed automatically. A licensed attorney is confirming the items below. We&rsquo;ll email you when your passport is issued, usually within one business day.</p>
+      <h1 className="display mt-5 text-[clamp(32px,4.6vw,46px)] leading-[1.04] text-ink">Under review</h1>
+      <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-2">Almost done. You don&rsquo;t need to do anything. This page updates, and we&rsquo;ll email you, the moment your passport is ready.</p>
 
       <ol className="mt-10">
         {steps.map((s, i) => (
@@ -140,30 +146,6 @@ function InReview({ v, onSignOff, signing }: { v: Verification; onSignOff: () =>
           </li>
         ))}
       </ol>
-
-      {v.evaluation.reasons.length > 0 && (
-        <div className="mt-10 rounded-2xl border border-warn/30 bg-warn-soft/60 p-5">
-          <p className="text-[14px] font-medium text-warn">What the reviewer is checking</p>
-          <ul className="mt-2.5 space-y-1.5">
-            {v.evaluation.reasons.map((r) => (
-              <li key={r} className="text-[15px] text-ink-2">
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {isMock && (
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-line-strong px-4 py-3">
-          <span className="flex items-center gap-1.5 font-mono text-[10.5px] tracking-[0.14em] text-ink-3 uppercase">
-            <FlaskConical className="size-3.5" /> Sandbox
-          </span>
-          <Button size="sm" variant="secondary" onClick={onSignOff} loading={signing}>
-            Simulate attorney sign-off
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

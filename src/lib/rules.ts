@@ -12,6 +12,8 @@ export const THRESHOLDS = {
   entityAssets: 5_000_000,
   freshnessDays: 90,
   passportValidityDays: 90,
+  /** AI-read documents below this confidence go to the review queue instead of clearing automatically. */
+  reviewConfidence: 0.9,
 } as const
 
 export interface PathwayInfo {

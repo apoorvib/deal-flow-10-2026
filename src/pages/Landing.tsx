@@ -31,7 +31,7 @@ const AUDIENCES = [
 
 const STEPS = [
   { icon: Send, title: 'Invite', body: 'Send your LPs one Savy link. No account setup on your side.' },
-  { icon: FileCheck2, title: 'Verify', body: 'Investors connect accounts or upload documents once. Savy reviews them in minutes, with licensed review where the rule requires it.' },
+  { icon: FileCheck2, title: 'Verify', body: 'Investors connect accounts or upload documents once. Savy\u2019s AI reviews them in minutes.' },
   { icon: FolderCheck, title: 'Close', body: 'You get a verification letter and an audit-ready file for every investor.' },
 ]
 
