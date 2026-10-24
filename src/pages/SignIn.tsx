@@ -8,6 +8,7 @@ import { api, isMock } from '../lib/api/client'
 import { homeFor, useAuth } from '../lib/auth'
 import { cn } from '../lib/cn'
 import type { Role } from '../lib/types'
+import { Photo } from '../components/Photo'
 
 const ROLES: { id: Role; label: string; icon: typeof User }[] = [
   { id: 'investor', label: 'Investor', icon: User },
@@ -50,8 +51,13 @@ export default function SignIn() {
   }
 
   return (
-    <div className="bg-surface">
-      <div className="mx-auto max-w-[460px] px-5 pt-16 pb-20 sm:px-8">
+    <div className="grid bg-surface lg:min-h-[640px] lg:grid-cols-2">
+      <div className="relative hidden overflow-hidden lg:block">
+        <Photo name="img01" sizes="50vw" className="absolute inset-0 size-full" position="30% center" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#022a21]/70 via-transparent to-transparent" aria-hidden />
+        <p className="display absolute right-10 bottom-10 left-10 text-[32px] leading-tight text-white">Accredited, once. Invested, everywhere.</p>
+      </div>
+      <div className="mx-auto w-full max-w-[460px] self-center px-5 pt-16 pb-20 sm:px-8">
         <div className="border border-line bg-raised p-8 shadow-card sm:p-10">
           <AnimatePresence mode="wait" initial={false}>
             {sent ? (
