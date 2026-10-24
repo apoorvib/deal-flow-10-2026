@@ -107,13 +107,13 @@ function useCardTilt(interactive: boolean) {
 
 const z = (n: number): React.CSSProperties => ({ transform: `translateZ(${n}px)` })
 
-/** Brushed foil: light pools where --gx/--gy put it, falling off to mint-tinted steel. */
+/** Gold foil, matched to the seal: light pools where --gx/--gy put it, falling off to antique gold. */
 const FOIL =
-  'radial-gradient(circle at var(--gx, 50%) var(--gy, 40%), #ffffff 0%, #f2fbf7 14%, #c9e9dc 32%, #8fb8a8 55%, #5d8576 78%, #3f5f54 100%)'
+  'radial-gradient(circle at var(--gx, 50%) var(--gy, 40%), #fff6dc 0%, #f1dfb5 14%, #d9b97c 32%, #b8935b 55%, #8c6c3d 78%, #5e4625 100%)'
 
-/** Rim foil: two bright glints on a conic sweep whose start angle follows the tilt, so they travel around the edge. */
+/** Rim foil: two gold glints on a conic sweep whose start angle follows the tilt, so they travel around the edge. */
 const RIM =
-  'conic-gradient(from calc(var(--ry, 0deg) * 7 + var(--rx, 0deg) * 4 + 210deg), #1f3a31 0%, #5f8d7c 6%, #e8f7f0 10%, #ffffff 11.5%, #9fd1bd 14%, #2b4c41 24%, #1f3a31 38%, #4f7a6b 50%, #d6efe4 57%, #ffffff 59%, #7fae9c 63%, #24433a 74%, #1f3a31 100%)'
+  'conic-gradient(from calc(var(--ry, 0deg) * 7 + var(--rx, 0deg) * 4 + 210deg), #5e4625 0%, #a8834c 6%, #f1dfb5 10%, #fff6dc 11.5%, #d9b97c 14%, #7a5c32 24%, #5e4625 38%, #9a7843 50%, #e8d19f 57%, #fff6dc 59%, #c9a468 63%, #6d522c 74%, #5e4625 100%)'
 
 export function PassportCard({ data, interactive = true, className }: { data: PassportCardData; interactive?: boolean; className?: string }) {
   const { stage, card, handlers } = useCardTilt(interactive)
@@ -141,12 +141,12 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
         {/* Foil rim: a sheet poking 3px past the face. Glints travel round it as the card turns. */}
         <div
           className="absolute -inset-[3px] rounded-[17px]"
-          style={{ background: RIM, boxShadow: '0 0 16px rgb(201 233 220 / 0.4), 0 28px 50px -24px rgb(2 30 24 / 0.55)', ...z(0) }}
+          style={{ background: RIM, boxShadow: '0 0 16px rgb(217 185 124 / 0.4), 0 28px 50px -24px rgb(2 30 24 / 0.55)', ...z(0) }}
           aria-hidden
         />
 
         {/* Face: card stock, vignette and guilloche. Clipping lives here, not on the 3D parent. */}
-        <div className="absolute inset-0 overflow-hidden rounded-[14px] shadow-[inset_0_0_0_1px_rgb(238_250_244/0.28)]" style={z(1)}>
+        <div className="absolute inset-0 overflow-hidden rounded-[14px] shadow-[inset_0_0_0_1px_rgb(241_223_181/0.3)]" style={z(1)}>
           <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_85%_20%,#0b6a52_0%,#04493a_50%,#022a21_100%)]" />
           <svg viewBox="0 0 600 378" className="absolute inset-0 size-full" preserveAspectRatio="xMidYMid slice" aria-hidden>
             <g fill="none" stroke="#d8c39a" strokeWidth="0.45">
@@ -194,11 +194,11 @@ export function PassportCard({ data, interactive = true, className }: { data: Pa
 
         {/* Gloss, always the top layer: a soft pool and a broad band that drift only slightly, like light on a rigid plate. */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[14px]" style={z(3)} aria-hidden>
-          <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at var(--gx, 50%) var(--gy, 40%), rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.03) 40%, transparent 65%)' }} />
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at var(--gx, 50%) var(--gy, 40%), rgb(241 223 181 / 0.14), rgb(217 185 124 / 0.04) 40%, transparent 65%)' }} />
           <div
-            className="absolute -inset-1/2 mix-blend-overlay"
+            className="absolute -inset-1/2 mix-blend-screen"
             style={{
-              background: 'linear-gradient(115deg, transparent 30%, rgb(255 255 255 / 0.1) 46%, rgb(255 255 255 / 0.14) 50%, rgb(255 255 255 / 0.1) 54%, transparent 70%)',
+              background: 'linear-gradient(115deg, transparent 30%, rgb(232 209 159 / 0.12) 46%, rgb(241 223 181 / 0.18) 50%, rgb(232 209 159 / 0.12) 54%, transparent 70%)',
               transform: 'translateX(calc((var(--gx, 50%) - 50%) * 0.7))',
             }}
           />
