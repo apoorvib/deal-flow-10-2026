@@ -153,7 +153,7 @@ function Footer() {
         </div>
         <div className="mt-12 flex flex-col justify-between gap-3 border-t border-line pt-6 text-[13px] leading-relaxed text-ink-3 sm:flex-row">
           <p className="max-w-2xl">
-            Savy does not provide legal, tax or investment advice. Consult counsel on how Rule 506(c) applies to your offering.
+            Savy does not provide legal, tax or investment advice. Consult counsel on how Rule 506(c) applies to your offering. Carta, AngelList, Affinity and Juniper Square are trademarks of their respective owners; Savy is not affiliated with or endorsed by them.
           </p>
           <p className="shrink-0 font-semibold tracking-wide uppercase">{isMock ? 'Sandbox · demo data' : `© ${new Date().getFullYear()} ${BRAND.name}`}</p>
         </div>

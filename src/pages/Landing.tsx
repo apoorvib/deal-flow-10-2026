@@ -31,11 +31,12 @@ const AUDIENCES = [
 
 // The platforms most VC firms run on, one per job. Shown as "works alongside", not as an integration
 // or endorsement: Savy's passport and letter fit any workflow. Marks are each company's own site icon.
+// Trademark / no-affiliation notice for these lives in the footer.
 const PLATFORMS = [
-  { name: 'Carta', logo: '/img/platforms/carta.png', job: 'Cap tables & fund admin', fit: 'Keep running the fund in Carta. Savy hands you the accreditation file for every LP.' },
-  { name: 'AngelList', logo: '/img/platforms/angellist.png', job: 'SPVs & syndicates', fit: 'Raising on AngelList? Your LPs show up already verified, with a letter to match.' },
-  { name: 'Affinity', logo: '/img/platforms/affinity.png', job: 'Dealflow CRM', fit: 'Track the relationship in Affinity. Savy clears the investor before the close.' },
-  { name: 'Juniper Square', logo: '/img/platforms/junipersquare.png', job: 'LP portal & fund admin', fit: 'Onboard LPs in Juniper Square with accreditation already done.' },
+  { name: 'Carta', logo: '/img/platforms/carta.png' },
+  { name: 'AngelList', logo: '/img/platforms/angellist.png' },
+  { name: 'Affinity', logo: '/img/platforms/affinity.png' },
+  { name: 'Juniper Square', logo: '/img/platforms/junipersquare.png' },
 ]
 
 const STEPS = [
@@ -147,21 +148,14 @@ export default function Landing() {
       {/* Works alongside */}
       <section className="mx-auto max-w-6xl px-5 pt-16 sm:px-8">
         <p className="text-center text-[15px] font-semibold text-ink-2">Works alongside the platforms you already run your fund on</p>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-14 gap-y-8">
           {PLATFORMS.map((x, i) => (
-            <motion.div key={x.name} {...inView} transition={{ delay: i * 0.05 }} className="border border-line bg-raised p-5 shadow-card">
-              <div className="flex items-center gap-3">
-                <img src={x.logo} alt={`${x.name} logo`} width={28} height={28} className="size-7 rounded-[6px]" loading="lazy" />
-                <div>
-                  <p className="text-[17px] font-semibold text-ink">{x.name}</p>
-                  <p className="text-[13px] text-ink-3">{x.job}</p>
-                </div>
-              </div>
-              <p className="mt-3 text-[15px] leading-relaxed text-ink-2">{x.fit}</p>
-            </motion.div>
+            <motion.li key={x.name} {...inView} transition={{ delay: i * 0.05 }} className="flex items-center gap-3.5">
+              <img src={x.logo} alt="" width={44} height={44} className="size-11 rounded-[8px]" loading="lazy" />
+              <span className="text-[28px] font-bold tracking-[-0.01em] text-ink">{x.name}</span>
+            </motion.li>
           ))}
-        </div>
-        <p className="mt-4 text-center text-[12px] text-ink-3">Carta, AngelList, Affinity and Juniper Square are trademarks of their respective owners. Savy is not affiliated with or endorsed by them.</p>
+        </ul>
       </section>
 
       {/* Problem */}
